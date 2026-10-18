@@ -132,7 +132,7 @@ app.get('/health', (_req, res) => {
 });
 
 const getCompatibilityScore = (profile) => {
-  const compatibility = profile.compatibility ?? {};
+  const compatibility = profile.compatibility ?? profile;
   const scores = [
     Number(compatibility.pace ?? 0),
     Number(compatibility.values ?? 0),

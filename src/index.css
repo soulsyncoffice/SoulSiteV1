@@ -1,15 +1,14 @@
 :root {
-  font-family: Inter, 'Segoe UI', sans-serif;
+  font-family: Inter, 'Segoe UI', system-ui, sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  color: #f4f7ff;
-  background:
-    radial-gradient(circle at top, rgba(128, 110, 255, 0.2), transparent 35%),
-    linear-gradient(180deg, #070b14 0%, #0f1525 100%);
+  color: #f5f3ff;
+  background: #070812;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  font-optical-sizing: auto;
 }
 
 * {
@@ -17,18 +16,31 @@
 }
 
 html {
-  background: #070b14;
+  min-width: 320px;
+  min-height: 100%;
+  background: #070812;
+  scroll-behavior: smooth;
 }
 
 body {
   margin: 0;
+  min-width: 320px;
   min-height: 100vh;
-  background: #070b14;
+  background: #070812;
 }
 
 button,
 select {
   font: inherit;
+}
+
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+::selection {
+  color: #10111c;
+  background: #b8efdf;
 }
 
 #root {
