@@ -34,6 +34,8 @@ Create a Railway service from the repository root (`soulsyncoffice/SoulSiteV1`) 
 
 Railway supplies `PORT`; no manual port variable is needed. Attach a persistent Volume to the service with mount path `/app/server/data`. The default SQLite directory resolves to `server/data` beside the API source, which is `/app/server/data` in the standard Railway app root. If your service uses a different runtime root or mount location, set `SOULSITE_DATA_DIR` to the mount's absolute path. Keep the database filename `soulsync.db`: it preserves the existing local database layout. Without a mounted volume, SQLite data is ephemeral and can be lost when the service is redeployed.
 
+The project requires Node.js 22.12 or newer.
+
 Run **one replica** while using this SQLite volume; Railway volumes are attached to an instance and SQLite is not a shared multi-replica database. Use a shared database service before increasing replicas.
 
 ## Matching API
