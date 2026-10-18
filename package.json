@@ -1,5 +1,5 @@
 {
-  "name": "soulsitev1",
+  "name": "soulsite",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -7,6 +7,7 @@
     "dev": "vite --host 0.0.0.0",
     "backend": "node server/server.js",
     "build": "vite build",
+    "start": "node server/server.js",
     "lint": "oxlint .",
     "preview": "vite preview --host 0.0.0.0"
   },

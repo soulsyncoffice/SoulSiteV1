@@ -1,65 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import './App.css'
-
-const profiles = [
-  {
-    id: 'nova',
-    name: 'Nova',
-    age: 29,
-    distance: '8 km away',
-    intention: 'Serious relationship',
-    energy: 'Thoughtful evenings, slow-burn chemistry',
-    tags: ['Deep conversations', 'Nature walks', 'Live music'],
-    values: ['Honesty over hype', 'Warm routines', 'Mutual growth'],
-    bio:
-      'I like people whose curiosity feels as alive as their kindness. My ideal first meeting is a quiet venue with good coffee, a long walk, and a space to hear each other without rushing.',
-    compatibility: {
-      pace: 92,
-      values: 88,
-      lifestyle: 85,
-      money: 75,
-    },
-    accent: '#8c8cff',
-  },
-  {
-    id: 'sol',
-    name: 'Sol',
-    age: 31,
-    distance: '12 km away',
-    intention: 'Casual dating with potential',
-    energy: 'Curious, outdoorsy, low-pressure',
-    tags: ['Street food', 'Bookshops', 'Weekend hikes'],
-    values: ['Playful sincerity', 'Shared adventure', 'Respectful boundaries'],
-    bio:
-      'I build my life around creative work, honest laughter, and the kind of connection that feels unforced. I prefer to meet somewhere public, warm, and easy to walk away from if the energy isn’t right.',
-    compatibility: {
-      pace: 79,
-      values: 90,
-      lifestyle: 88,
-      money: 82,
-    },
-    accent: '#74e9d8',
-  },
-  {
-    id: 'tide',
-    name: 'Tide',
-    age: 27,
-    distance: '6 km away',
-    intention: 'Friendship with romantic potential',
-    energy: 'Slow, steady, emotionally mature',
-    tags: ['Gallery visits', 'Cinema', 'Pottery'],
-    values: ['Clear communication', 'Kindness first', 'Shared rituals'],
-    bio:
-      'I enjoy people who are thoughtful, grounded, and interested in the deeper texture of a life. I am happiest when conversation flows naturally and plans feel like an invitation, not a performance.',
-    compatibility: {
-      pace: 84,
-      values: 93,
-      lifestyle: 82,
-      money: 73,
-    },
-    accent: '#f4a2ff',
-  },
-]
 
 const tierConfiguration = {
   Free: 5,
@@ -67,8 +7,35 @@ const tierConfiguration = {
   Pro: 50,
 }
 
+const profileStorageKey = 'soulsync.profileId'
+
+function getYesCountStorageKey(userId) {
+  const today = new Date().toISOString().slice(0, 10)
+  return `soulsync.yesCount.${userId}.${today}`
+}
+
+async function request(path, options = {}) {
+  const response = await fetch(path, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  })
+
+  const payload = await response.json().catch(() => ({}))
+  if (!response.ok) {
+    const error = new Error(payload.message || payload.error || `Request failed (${response.status}).`)
+    error.status = response.status
+    throw error
+  }
+
+  return payload
+}
+
 function getCompatibilityScore(profile) {
-  const { pace, values, lifestyle, money } = profile.compatibility
+  if (typeof profile?.score === 'number') return profile.score
+  const { pace = 0, values = 0, lifestyle = 0, money = 0 } = profile?.compatibility || {}
   return Math.round((pace + values + lifestyle + money) / 4)
 }
 
@@ -87,11 +54,51 @@ function SoulOrb({ accent }) {
 
 function App() {
   const [tier, setTier] = useState('Free')
+  const [tiers, setTiers] = useState(tierConfiguration)
   const [dailyLimit, setDailyLimit] = useState(tierConfiguration.Free)
+  const [profiles, setProfiles] = useState([])
   const [profileIndex, setProfileIndex] = useState(0)
+  const [profileId, setProfileId] = useState(null)
   const [yesCount, setYesCount] = useState(0)
   const [decision, setDecision] = useState('No decision yet')
   const [matchState, setMatchState] = useState(null)
+  const [isReady, setIsReady] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let isActive = true
+
+    async function initialize() {
+      try {
+        const id = localStorage.getItem(profileStorageKey) || crypto.randomUUID()
+        localStorage.setItem(profileStorageKey, id)
+        const config = await request('/api/config')
+        if (!isActive) return
+
+        const nextTiers = config.tiers || tierConfiguration
+        setTiers(nextTiers)
+        setDailyLimit(nextTiers.Free ?? tierConfiguration.Free)
+        const profileResponse = await request('/api/profiles')
+        if (!isActive) return
+
+        const nextProfiles = profileResponse.profiles || []
+        setProfiles(nextProfiles)
+        setProfileId(id)
+        setYesCount(Number(localStorage.getItem(getYesCountStorageKey(id))) || 0)
+        setIsReady(true)
+      } catch (initializationError) {
+        if (!isActive) return
+        setError(initializationError.message)
+        setIsReady(true)
+      }
+    }
+
+    initialize()
+    return () => {
+      isActive = false
+    }
+  }, [])
 
   const currentProfile = profiles[profileIndex]
   const compatibilityScore = useMemo(
@@ -102,38 +109,52 @@ function App() {
 
   const handleTierChange = (nextTier) => {
     setTier(nextTier)
-    setDailyLimit(tierConfiguration[nextTier])
+    setDailyLimit(tiers[nextTier] ?? tierConfiguration.Free)
     setDecision('Daily limit updated')
   }
 
-  const handleDecisionClick = (nextDecision) => {
-    if (nextDecision === 'yes' && yesCount >= dailyLimit) {
+  const handleDecisionClick = async (nextDecision) => {
+    if (!currentProfile || !profileId || isSubmitting) return
+    if (nextDecision && yesCount >= dailyLimit) {
       setDecision('Daily YES limit reached for this tier.')
       return
     }
 
-    if (nextDecision === 'yes') {
-      const updatedCount = yesCount + 1
-      setYesCount(updatedCount)
-      const isStrongMatch = compatibilityScore >= 85
-      setDecision(
-        isStrongMatch ? 'Mutual sync detected. Date planning is available.' : 'Interested. Compatibility is being reviewed.',
-      )
-      setMatchState(
-        isStrongMatch
-          ? {
-              label: 'Compatibility window open',
-              venue: 'Moonlit rooftop cinema',
-              time: 'Saturday • 7:30 PM',
-            }
-          : null,
-      )
-    } else {
-      setDecision('Profile dismissed without revealing identity.')
-      setMatchState(null)
-    }
+    setIsSubmitting(true)
+    setError('')
+    try {
+      const result = await request('/api/decision', {
+        method: 'POST',
+        body: JSON.stringify({
+          userId: profileId,
+          profileId: currentProfile.id,
+          action: nextDecision ? 'yes' : 'no',
+          tier,
+        }),
+      })
 
-    setProfileIndex((previousIndex) => (previousIndex + 1) % profiles.length)
+      if (typeof result.remaining === 'number' && typeof result.limit === 'number') {
+        const count = Math.max(result.limit - result.remaining, 0)
+        setYesCount(count)
+        localStorage.setItem(getYesCountStorageKey(profileId), String(count))
+      }
+
+      setDecision(
+        result.match
+          ? 'Compatibility window open. Date planning is available.'
+          : result.message || 'Decision recorded.',
+      )
+      setMatchState(result.match || null)
+      setProfileIndex((index) => (index + 1) % profiles.length)
+    } catch (voteError) {
+      if (voteError.status === 429) {
+        setYesCount(dailyLimit)
+        localStorage.setItem(getYesCountStorageKey(profileId), String(dailyLimit))
+      }
+      setError(voteError.message)
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   return (
@@ -141,7 +162,7 @@ function App() {
       <header className="topbar">
         <div>
           <p className="eyebrow">Anonymous discovery</p>
-          <h1>Soul Sync</h1>
+          <h1>SoulSite</h1>
         </div>
         <div className="tier-picker">
           <label htmlFor="tier">Access tier</label>
@@ -150,7 +171,7 @@ function App() {
             value={tier}
             onChange={(event) => handleTierChange(event.target.value)}
           >
-            {Object.keys(tierConfiguration).map((option) => (
+            {Object.keys(tiers).map((option) => (
               <option key={option} value={option}>
                 {option}
               </option>
@@ -166,34 +187,53 @@ function App() {
             <span className="pill muted">No messaging • No face photos</span>
           </div>
 
-          <div className="orb-card">
-            <SoulOrb accent={currentProfile.accent} />
-            <div className="name-block">
-              <h2>{currentProfile.name}</h2>
-              <p>
-                {currentProfile.age} • {currentProfile.distance}
-              </p>
+          {currentProfile ? (
+            <>
+              <div className="orb-card">
+                <SoulOrb accent={currentProfile.accent || '#8c8cff'} />
+                <div className="name-block">
+                  <h2>{currentProfile.name || 'A new connection'}</h2>
+                  <p>
+                    {currentProfile.age ? `${currentProfile.age} • ` : ''}
+                    {currentProfile.distance || 'Nearby'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="profile-copy">
+                <p className="intention">{currentProfile.intention}</p>
+                <p className="energy">{currentProfile.energy}</p>
+                <p>{currentProfile.bio}</p>
+              </div>
+
+              <div className="tag-list">
+                {(currentProfile.tags || []).map((tag) => (
+                  <span key={tag}>{tag}</span>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="empty-state" role="status">
+              {error ? `Backend unavailable: ${error}` : isReady ? 'No profiles are available yet.' : 'Connecting to the local backend…'}
             </div>
-          </div>
-
-          <div className="profile-copy">
-            <p className="intention">{currentProfile.intention}</p>
-            <p className="energy">{currentProfile.energy}</p>
-            <p>{currentProfile.bio}</p>
-          </div>
-
-          <div className="tag-list">
-            {currentProfile.tags.map((tag) => (
-              <span key={tag}>{tag}</span>
-            ))}
-          </div>
+          )}
 
           <div className="action-row">
-            <button type="button" className="ghost-button" onClick={() => handleDecisionClick('no')}>
+            <button
+              type="button"
+              className="ghost-button"
+              disabled={!currentProfile || isSubmitting}
+              onClick={() => handleDecisionClick(false)}
+            >
               NO
             </button>
-            <button type="button" className="primary-button" onClick={() => handleDecisionClick('yes')}>
-              YES
+            <button
+              type="button"
+              className="primary-button"
+              disabled={!currentProfile || isSubmitting}
+              onClick={() => handleDecisionClick(true)}
+            >
+              {isSubmitting ? 'SENDING…' : 'YES'}
             </button>
           </div>
         </section>
@@ -213,7 +253,7 @@ function App() {
           <div className="panel-block">
             <p className="eyebrow">Why this profile resonates</p>
             <ul className="value-list">
-              {currentProfile.values.map((value) => (
+              {(currentProfile?.values || []).map((value) => (
                 <li key={value}>{value}</li>
               ))}
             </ul>
@@ -221,7 +261,7 @@ function App() {
 
           <div className="panel-block status-panel">
             <p className="eyebrow">Decision state</p>
-            <p>{decision}</p>
+            <p aria-live="polite">{error || decision}</p>
             {matchState ? (
               <div className="sync-box">
                 <span>{matchState.label}</span>

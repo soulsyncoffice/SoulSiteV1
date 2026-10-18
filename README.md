@@ -1,20 +1,43 @@
-# SoulSiteV1
+# SoulSite
 
-A minimal React + Vite template adapted for the SoulSiteV1 anonymous matching prototype.
+SoulSite is an anonymous compatibility-discovery MVP. The Express/SQLite service in `server/server.js` is the canonical API and serves the built React app in production. The GitHub repository remains `soulsyncoffice/SoulSiteV1`.
 
-# React + Vite
+## Run locally
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Install dependencies with `npm install`. For frontend development, run the API and Vite in separate terminals:
 
-Currently, two official plugins are available:
+```sh
+npm run backend
+npm run dev
+```
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+Vite runs at `http://localhost:5173` and proxies `/api` to the API on port 3001. For a production-like local run, build and start the combined server:
 
-## React Compiler
+```sh
+npm run build
+npm start
+```
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+The server listens on `PORT` (default `3001`) and binds to `0.0.0.0`. It serves the frontend build, supports client-side routes, and exposes `GET /health` for health checks.
 
-## Expanding the Oxlint configuration
+## Deploy to Railway
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+Create a Railway service from the repository root (`soulsyncoffice/SoulSiteV1`) and use these settings:
+
+| Setting | Value |
+| --- | --- |
+| Root Directory | `/` (repository root) |
+| Build Command | `npm run build` |
+| Start Command | `npm start` |
+| Healthcheck Path | `/health` |
+| Public domain | In the service's **Settings → Networking**, generate a Railway domain |
+
+Railway supplies `PORT`; no manual port variable is needed. Attach a persistent Volume to the service with mount path `/app/server/data`. The default SQLite directory resolves to `server/data` beside the API source, which is `/app/server/data` in the standard Railway app root. If your service uses a different runtime root or mount location, set `SOULSITE_DATA_DIR` to the mount's absolute path. Keep the database filename `soulsync.db`: it preserves the existing local database layout. Without a mounted volume, SQLite data is ephemeral and can be lost when the service is redeployed.
+
+Run **one replica** while using this SQLite volume; Railway volumes are attached to an instance and SQLite is not a shared multi-replica database. Use a shared database service before increasing replicas.
+
+## Matching API
+
+The UI loads tier limits from `GET /api/config`, profiles from `GET /api/profiles`, and submits YES/NO decisions to `POST /api/decision`. The API enforces daily YES limits and returns compatibility scores and planning suggestions. The local database defaults to `server/data/soulsync.db`; set `SOULSITE_DATA_DIR` to override its directory.
+
+The app retains its existing browser local-storage keys and SQLite filename so existing anonymous IDs, daily counts, and database contents are not stranded by the SoulSite rebrand.
