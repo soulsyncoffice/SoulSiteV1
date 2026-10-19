@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import Database from 'better-sqlite3';
+import { createClient } from '@supabase/supabase-js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -10,6 +11,46 @@ const __dirname = path.dirname(__filename);
 const dataDir = process.env.SOULSITE_DATA_DIR || path.join(__dirname, 'data');
 const dbPath = path.join(dataDir, 'soulsync.db');
 const staticDir = path.resolve(__dirname, '..', 'dist');
+const supabaseUrl = process.env.SUPABASE_URL?.trim();
+const supabaseAnonKey = process.env.SUPABASE_ANON_KEY?.trim();
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
+
+const configuredSupabaseValues = [supabaseUrl, supabaseAnonKey, supabaseServiceRoleKey];
+if (configuredSupabaseValues.some(Boolean) && !configuredSupabaseValues.every(Boolean)) {
+  throw new Error('Set SUPABASE_URL, SUPABASE_ANON_KEY, and SUPABASE_SERVICE_ROLE_KEY together.');
+}
+
+if (supabaseUrl) {
+  let parsedUrl;
+  try {
+    parsedUrl = new URL(supabaseUrl);
+  } catch {
+    throw new Error('SUPABASE_URL must be a valid URL.');
+  }
+  if (!['https:', 'http:'].includes(parsedUrl.protocol)) {
+    throw new Error('SUPABASE_URL must use HTTPS or HTTP.');
+  }
+}
+
+const authEnabled = Boolean(supabaseUrl);
+const supabaseAuthClient = authEnabled
+  ? createClient(supabaseUrl, supabaseAnonKey, {
+      auth: {
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+        persistSession: false,
+      },
+    })
+  : null;
+const supabaseAdminClient = authEnabled
+  ? createClient(supabaseUrl, supabaseServiceRoleKey, {
+      auth: {
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+        persistSession: false,
+      },
+    })
+  : null;
 
 fs.mkdirSync(dataDir, { recursive: true });
 
@@ -128,7 +169,7 @@ app.use(cors());
 app.use(express.json({ limit: '1mb' }));
 
 app.get('/health', (_req, res) => {
-  res.json({ status: 'ok' });
+  res.json({ status: 'ok', authEnabled });
 });
 
 const getCompatibilityScore = (profile) => {
@@ -153,8 +194,72 @@ const getDailyYesCount = (userId, dateKey) => {
   return Number(result?.count ?? 0);
 };
 
+async function authenticateRequest(req, res) {
+  const authorization = req.get('authorization') || '';
+  const tokenMatch = authorization.match(/^Bearer\s+(.+)$/i);
+  if (!tokenMatch?.[1].trim()) {
+    res.status(401).json({ message: 'Sign in to save your decision.' });
+    return null;
+  }
+
+  const accessToken = tokenMatch[1].trim();
+  try {
+    const { data, error } = await supabaseAuthClient.auth.getUser(accessToken);
+    if (error || !data?.user) {
+      res.status(401).json({ message: 'Your sign-in has expired. Please sign in again.' });
+      return null;
+    }
+
+    const client = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: `Bearer ${accessToken}` } },
+      auth: {
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+        persistSession: false,
+      },
+    });
+    return { user: data.user, client };
+  } catch (error) {
+    console.error('Supabase authentication verification failed:', error);
+    res.status(503).json({ message: 'Authentication service is temporarily unavailable.' });
+    return null;
+  }
+}
+
+async function getAuthenticatedYesCount(client, userId, dateKey) {
+  const { count, error } = await client
+    .from('decisions')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', userId)
+    .eq('date_key', dateKey)
+    .eq('decision', 'yes');
+
+  if (error) {
+    console.error('Could not read authenticated decision count:', error);
+    throw new Error('Decision storage is temporarily unavailable.');
+  }
+  return Number(count ?? 0);
+}
+
+app.get('/api/decision/usage', async (req, res) => {
+  if (!authEnabled) {
+    return res.status(404).json({ message: 'Authenticated usage is not enabled.' });
+  }
+  const auth = await authenticateRequest(req, res);
+  if (!auth) return;
+
+  try {
+    const dateKey = new Date().toISOString().slice(0, 10);
+    const usedToday = await getAuthenticatedYesCount(auth.client, auth.user.id, dateKey);
+    return res.json({ usedToday });
+  } catch (error) {
+    console.error(error.message);
+    return res.status(503).json({ message: error.message });
+  }
+});
+
 app.get('/api/config', (_req, res) => {
-  res.json({ tiers: tierConfig });
+  res.json({ tiers: tierConfig, authEnabled });
 });
 
 app.get('/api/profiles', (_req, res) => {
@@ -169,16 +274,39 @@ app.get('/api/profiles', (_req, res) => {
   res.json({ profiles: serialized });
 });
 
-app.post('/api/decision', (req, res) => {
+app.post('/api/decision', async (req, res) => {
   const { userId = 'demo-user', profileId, action, tier = 'Free' } = req.body ?? {};
 
-  if (!profileId || !['yes', 'no'].includes(action)) {
+  if (typeof profileId !== 'string' || !profileId || !['yes', 'no'].includes(action)) {
     return res.status(400).json({ message: 'profileId and a valid yes/no action are required.' });
   }
 
+  const profile = profiles.find((entry) => entry.id === profileId);
+  if (!profile) {
+    return res.status(404).json({ message: 'Profile not found.' });
+  }
+
+  const normalizedTier = Object.hasOwn(tierConfig, tier) ? tier : 'Free';
   const dateKey = new Date().toISOString().slice(0, 10);
-  const limit = tierConfig[tier] ?? tierConfig.Free;
-  const usedToday = getDailyYesCount(userId, dateKey);
+  const limit = tierConfig[normalizedTier];
+  let ownerId = userId;
+  let userClient;
+  let usedToday;
+
+  if (authEnabled) {
+    const auth = await authenticateRequest(req, res);
+    if (!auth) return;
+    ownerId = auth.user.id;
+    userClient = auth.client;
+    try {
+      usedToday = await getAuthenticatedYesCount(userClient, ownerId, dateKey);
+    } catch (error) {
+      console.error(error.message);
+      return res.status(503).json({ message: error.message });
+    }
+  } else {
+    usedToday = getDailyYesCount(ownerId, dateKey);
+  }
 
   if (action === 'yes' && usedToday >= limit) {
     return res.status(429).json({
@@ -188,15 +316,31 @@ app.post('/api/decision', (req, res) => {
     });
   }
 
-  const profile = profiles.find((entry) => entry.id === profileId);
-  if (!profile) {
-    return res.status(404).json({ message: 'Profile not found.' });
+  if (authEnabled) {
+    const { error } = await supabaseAdminClient.from('decisions').insert({
+      user_id: ownerId,
+      profile_id: profileId,
+      decision: action,
+      tier: normalizedTier,
+      date_key: dateKey,
+    });
+    if (error) {
+      if (error.code === '23514' && error.message.includes('daily_yes_limit_reached')) {
+        return res.status(429).json({
+          message: 'Daily YES limit reached for this tier.',
+          remaining: 0,
+          limit,
+        });
+      }
+      console.error('Could not save authenticated decision:', error);
+      return res.status(503).json({ message: 'Decision storage is temporarily unavailable.' });
+    }
+  } else {
+    db.prepare(`
+      INSERT INTO decisions (user_id, profile_id, decision, tier, date_key)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(ownerId, profileId, action, normalizedTier, dateKey);
   }
-
-  db.prepare(`
-    INSERT INTO decisions (user_id, profile_id, decision, tier, date_key)
-    VALUES (?, ?, ?, ?, ?)
-  `).run(userId, profileId, action, tier, dateKey);
 
   const score = getCompatibilityScore(profile);
 
@@ -245,7 +389,16 @@ app.use((req, res, next) => {
   });
 });
 
+app.use((error, _req, res, next) => {
+  console.error('Unhandled request error:', error);
+  if (res.headersSent) return next(error);
+  return res.status(500).json({ message: 'The request could not be completed.' });
+});
+
 const port = Number(process.env.PORT || 3001);
+if (!Number.isInteger(port) || port < 1 || port > 65535) {
+  throw new Error('PORT must be an integer from 1 to 65535.');
+}
 app.listen(port, '0.0.0.0', () => {
   console.log(`SoulSite server running on port ${port}`);
 });

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
+import { supabase } from './lib/supabase.js'
 import './App.css'
 
 const tierConfiguration = {
@@ -420,6 +421,13 @@ function App() {
   const [tiers, setTiers] = useState(tierConfiguration)
   const [dailyLimit, setDailyLimit] = useState(tierConfiguration.Free)
   const [profiles, setProfiles] = useState([])
+  const [authEnabled, setAuthEnabled] = useState(false)
+  const [session, setSession] = useState(null)
+  const [authEmail, setAuthEmail] = useState('')
+  const [authPassword, setAuthPassword] = useState('')
+  const [authMode, setAuthMode] = useState('signin')
+  const [authMessage, setAuthMessage] = useState('')
+  const [showAuthForm, setShowAuthForm] = useState(false)
   const [profileIndex, setProfileIndex] = useState(0)
   const [profileId, setProfileId] = useState(null)
   const [yesCount, setYesCount] = useState(0)
@@ -432,6 +440,7 @@ function App() {
 
   useEffect(() => {
     let isActive = true
+    let authSubscription
 
     async function initialize() {
       setIsReady(false)
@@ -445,13 +454,50 @@ function App() {
         const nextTiers = config.tiers || tierConfiguration
         setTiers(nextTiers)
         setDailyLimit(nextTiers.Free ?? tierConfiguration.Free)
+        setAuthEnabled(Boolean(config.authEnabled))
+        if (config.authEnabled && supabase) {
+          const { data, error: sessionError } = await supabase.auth.getSession()
+          if (sessionError) throw sessionError
+          if (!isActive) return
+          setSession(data.session)
+          authSubscription = supabase.auth.onAuthStateChange((_event, nextSession) => {
+            if (!isActive) return
+            setSession(nextSession)
+            setYesCount(0)
+            if (!nextSession) return
+            window.setTimeout(async () => {
+              try {
+                const usage = await request('/api/decision/usage', {
+                  headers: { Authorization: `Bearer ${nextSession.access_token}` },
+                })
+                const { data: currentSessionData } = await supabase.auth.getSession()
+                if (isActive && currentSessionData.session?.user.id === nextSession.user.id) {
+                  setYesCount(usage.usedToday || 0)
+                }
+              } catch (usageError) {
+                if (isActive) setError(usageError.message)
+              }
+            }, 0)
+          }).data.subscription
+          if (data.session) {
+            const usage = await request('/api/decision/usage', {
+              headers: { Authorization: `Bearer ${data.session.access_token}` },
+            })
+            if (!isActive) return
+            setYesCount(usage.usedToday || 0)
+          } else {
+            setYesCount(0)
+          }
+        } else {
+          setSession(null)
+          setYesCount(Number(localStorage.getItem(getYesCountStorageKey(id))) || 0)
+        }
         const profileResponse = await request('/api/profiles')
         if (!isActive) return
 
         const nextProfiles = profileResponse.profiles || []
         setProfiles(nextProfiles)
         setProfileId(id)
-        setYesCount(Number(localStorage.getItem(getYesCountStorageKey(id))) || 0)
         setIsReady(true)
       } catch (initializationError) {
         if (!isActive) return
@@ -463,6 +509,7 @@ function App() {
     initialize()
     return () => {
       isActive = false
+      authSubscription?.unsubscribe()
     }
   }, [retryCount])
 
@@ -479,8 +526,52 @@ function App() {
     setDecision('Your daily rhythm has been updated.')
   }
 
+  const handleAuthSubmit = async (event) => {
+    event.preventDefault()
+    if (!supabase) {
+      setError('Browser authentication is not configured.')
+      return
+    }
+    setError('')
+    setAuthMessage('')
+    try {
+      const result = authMode === 'signin'
+        ? await supabase.auth.signInWithPassword({ email: authEmail, password: authPassword })
+        : await supabase.auth.signUp({ email: authEmail, password: authPassword })
+      if (result.error) {
+        setError(result.error.message)
+        return
+      }
+      if (authMode === 'signup' && !result.data.session) {
+        setAuthMessage('Check your email to confirm your account, then sign in.')
+      } else {
+        setAuthMessage(authMode === 'signin' ? 'Signed in securely.' : 'Account created.')
+      }
+      setAuthPassword('')
+      setShowAuthForm(false)
+    } catch (authError) {
+      setError(authError.message || 'Authentication is temporarily unavailable.')
+    }
+  }
+
+  const handleSignOut = async () => {
+    try {
+      const { error: signOutError } = await supabase.auth.signOut()
+      if (signOutError) setError(signOutError.message)
+      else setAuthMessage('You are signed out.')
+    } catch (signOutError) {
+      setError(signOutError.message || 'Could not sign out.')
+    }
+  }
+
   const handleDecisionClick = async (nextDecision) => {
     if (!currentProfile || !profileId || isSubmitting) return
+    setAuthMessage('')
+    if (authEnabled && !session) {
+      setShowAuthForm(true)
+      setError('Sign in to save your decisions securely.')
+      return
+    }
     if (nextDecision && yesCount >= dailyLimit) {
       setDecision('Your daily curiosity limit has been reached. The field will reopen tomorrow.')
       return
@@ -491,6 +582,7 @@ function App() {
     try {
       const result = await request('/api/decision', {
         method: 'POST',
+        headers: session ? { Authorization: `Bearer ${session.access_token}` } : {},
         body: JSON.stringify({
           userId: profileId,
           profileId: currentProfile.id,
@@ -502,7 +594,7 @@ function App() {
       if (typeof result.remaining === 'number' && typeof result.limit === 'number') {
         const count = Math.max(result.limit - result.remaining, 0)
         setYesCount(count)
-        localStorage.setItem(getYesCountStorageKey(profileId), String(count))
+        if (!authEnabled) localStorage.setItem(getYesCountStorageKey(profileId), String(count))
       }
 
       setDecision(
@@ -515,7 +607,7 @@ function App() {
     } catch (voteError) {
       if (voteError.status === 429) {
         setYesCount(dailyLimit)
-        localStorage.setItem(getYesCountStorageKey(profileId), String(dailyLimit))
+        if (!authEnabled) localStorage.setItem(getYesCountStorageKey(profileId), String(dailyLimit))
       }
       setError(voteError.message)
     } finally {
@@ -537,18 +629,67 @@ function App() {
           <span className="live-indicator" />
           <span>THE FIELD IS OPEN</span>
         </div>
-        <div className="tier-picker">
-          <label htmlFor="tier">YOUR DAILY RHYTHM</label>
-          <select
-            id="tier"
-            value={tier}
-            onChange={(event) => handleTierChange(event.target.value)}
-          >
-            {Object.keys(tiers).map((option) => (
-              <option key={option} value={option}>{option}</option>
-            ))}
-          </select>
-          <span aria-hidden="true" className="select-chevron">⌄</span>
+        <div className="topbar-controls">
+          <div className="tier-picker">
+            <label htmlFor="tier">YOUR DAILY RHYTHM</label>
+            <select
+              id="tier"
+              value={tier}
+              onChange={(event) => handleTierChange(event.target.value)}
+            >
+              {Object.keys(tiers).map((option) => (
+                <option key={option} value={option}>{option}</option>
+              ))}
+            </select>
+            <span aria-hidden="true" className="select-chevron">⌄</span>
+          </div>
+          {authEnabled ? (
+            <div className="auth-actions">
+              {session ? (
+                <>
+                  <span className="auth-account">{session.user.email}</span>
+                  <button className="auth-toggle" onClick={handleSignOut} type="button">SIGN OUT</button>
+                </>
+              ) : (
+                <button className="auth-toggle" onClick={() => setShowAuthForm((visible) => !visible)} type="button">
+                  SIGN IN
+                </button>
+              )}
+              {showAuthForm && !session ? (
+                <form className="auth-form" onSubmit={handleAuthSubmit}>
+                  <input
+                    autoComplete="email"
+                    aria-label="Email address"
+                    onChange={(event) => setAuthEmail(event.target.value)}
+                    placeholder="Email address"
+                    required
+                    type="email"
+                    value={authEmail}
+                  />
+                  <input
+                    autoComplete={authMode === 'signin' ? 'current-password' : 'new-password'}
+                    aria-label="Password"
+                    minLength="8"
+                    onChange={(event) => setAuthPassword(event.target.value)}
+                    placeholder="Password (8+ characters)"
+                    required
+                    type="password"
+                    value={authPassword}
+                  />
+                  <button className="auth-toggle" type="submit">
+                    {authMode === 'signin' ? 'SIGN IN' : 'CREATE ACCOUNT'}
+                  </button>
+                  <button
+                    className="auth-mode-toggle"
+                    onClick={() => setAuthMode((mode) => mode === 'signin' ? 'signup' : 'signin')}
+                    type="button"
+                  >
+                    {authMode === 'signin' ? 'New to SoulSite? Create an account' : 'Already registered? Sign in'}
+                  </button>
+                </form>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       </header>
 
@@ -671,7 +812,7 @@ function App() {
 
           <div aria-live="polite" className={`signal-note${error ? ' has-error' : ''}`}>
             <span className="signal-pulse" />
-            <p>{error || decision}</p>
+            <p>{error || authMessage || decision}</p>
           </div>
           {matchState ? (
             <div className="match-reveal">
