@@ -1,0 +1,329 @@
+.account-overlay {
+  position: fixed;
+  z-index: 20;
+  inset: 0;
+  display: grid;
+  overflow: auto;
+  place-items: center;
+  padding: 24px;
+  background: rgba(5, 6, 17, 0.76);
+  backdrop-filter: blur(24px);
+}
+
+.account-panel {
+  position: relative;
+  width: min(100%, 760px);
+  max-height: min(92svh, 980px);
+  overflow: auto;
+  padding: clamp(25px, 5vw, 58px);
+  color: #f4f1ff;
+  background:
+    radial-gradient(ellipse at 92% 0%, rgba(141, 116, 255, 0.16), transparent 45%),
+    linear-gradient(145deg, rgba(19, 20, 38, 0.96), rgba(8, 10, 24, 0.97));
+  border: 1px solid rgba(209, 201, 255, 0.22);
+  border-radius: 28px;
+  box-shadow: 0 35px 120px rgba(0, 0, 0, 0.55), 0 0 75px rgba(117, 95, 224, 0.13);
+}
+
+.account-close {
+  position: absolute;
+  top: 16px;
+  right: 22px;
+  border: 0;
+  color: #dcd6f7;
+  background: transparent;
+  font-size: 2rem;
+  cursor: pointer;
+}
+
+.account-kicker,
+.soulmind-guide > strong {
+  color: #9b91cd;
+  font-size: 0.64rem;
+  letter-spacing: 0.18em;
+}
+
+.account-panel h2 {
+  margin: 9px 40px 12px 0;
+  font-size: clamp(1.8rem, 5vw, 3rem);
+  font-weight: 430;
+  letter-spacing: -0.06em;
+}
+
+.account-intro,
+.account-footnote {
+  color: #b3b1ca;
+  font-size: 0.88rem;
+  line-height: 1.7;
+}
+
+.account-form {
+  display: grid;
+  gap: 18px;
+  margin-top: 28px;
+}
+
+.account-form label,
+.profile-field > label {
+  display: grid;
+  gap: 9px;
+  color: #d9d5ec;
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+}
+
+.account-form input:not([type="checkbox"]),
+.profile-field textarea,
+.profile-field select {
+  width: 100%;
+  border: 1px solid rgba(202, 195, 251, 0.2);
+  border-radius: 13px;
+  padding: 12px 14px;
+  color: #f4f1ff;
+  background: rgba(10, 12, 27, 0.72);
+  outline: none;
+}
+
+.account-form input:focus,
+.profile-field textarea:focus,
+.profile-field select:focus {
+  border-color: rgba(160, 148, 255, 0.82);
+  box-shadow: 0 0 0 3px rgba(131, 113, 241, 0.14);
+}
+
+.account-form small,
+.soulmind-guide small {
+  color: #8988a7;
+  font-size: 0.73rem;
+  line-height: 1.5;
+}
+
+.account-checkbox {
+  display: flex !important;
+  align-items: flex-start;
+  gap: 10px !important;
+  line-height: 1.5;
+}
+
+.account-checkbox input {
+  margin-top: 3px;
+  accent-color: #a99aff;
+}
+
+.account-submit {
+  min-height: 48px;
+  border: 1px solid rgba(192, 177, 255, 0.55);
+  border-radius: 999px;
+  padding: 0 22px;
+  color: #f6f2ff;
+  background: linear-gradient(100deg, rgba(103, 82, 194, 0.8), rgba(56, 117, 137, 0.67));
+  font-size: 0.68rem;
+  font-weight: 650;
+  letter-spacing: 0.14em;
+  cursor: pointer;
+}
+
+.account-submit:disabled,
+.account-delete:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.account-text-button,
+.account-delete {
+  border: 0;
+  padding: 8px 0;
+  color: #b9b0f0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.account-user-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 20px;
+  color: #c5c1da;
+  font-size: 0.85rem;
+}
+
+.soulmind-guide {
+  display: grid;
+  gap: 9px;
+  margin: 20px 0 26px;
+  padding: 18px 0;
+  border-top: 1px solid rgba(209, 201, 255, 0.17);
+  border-bottom: 1px solid rgba(209, 201, 255, 0.17);
+}
+
+.soulmind-guide > span,
+.soulmind-guide p {
+  margin: 0;
+  color: #d8d4ec;
+  font-size: 0.84rem;
+  line-height: 1.6;
+}
+
+.profile-form {
+  gap: 25px;
+}
+
+.profile-field {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 190px;
+  gap: 10px 16px;
+  align-items: start;
+}
+
+.profile-field > label {
+  grid-column: 1 / -1;
+}
+
+.profile-field textarea {
+  min-height: 78px;
+  resize: vertical;
+  line-height: 1.55;
+}
+
+.profile-field select {
+  font-size: 0.76rem;
+}
+
+.profile-field select option {
+  color: #f4f1ff;
+  background: #121421;
+}
+
+.account-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.soulmind-overview {
+  display: grid;
+  gap: 15px;
+  margin-top: 32px;
+  padding: 22px 0 0;
+  border-top: 1px solid rgba(209, 201, 255, 0.17);
+}
+
+.soulmind-overview h3,
+.soulmind-story h4 {
+  margin: 0;
+  color: #e5dfff;
+  font-size: 1.15rem;
+  font-weight: 450;
+}
+
+.soulmind-overview > p,
+.soulmind-question p,
+.soulmind-story p {
+  margin: 0;
+  color: #b3b1ca;
+  font-size: 0.83rem;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+.soulmind-question {
+  display: grid;
+  gap: 8px;
+  border-left: 2px solid #a99aff;
+  padding-left: 14px;
+}
+
+.soulmind-question strong {
+  color: #d7cffd;
+  font-size: 0.83rem;
+}
+
+.soulmind-question span,
+.soulmind-story small {
+  color: #918eaa;
+  font-size: 0.74rem;
+  line-height: 1.55;
+}
+
+.soulmind-story {
+  display: grid;
+  gap: 12px;
+  padding-top: 15px;
+}
+
+.soulmind-story p {
+  color: #dedbed;
+}
+
+.account-delete {
+  justify-self: center;
+  color: #d2aeb8;
+  font-size: 0.8rem;
+}
+
+.account-delete-section {
+  display: grid;
+  gap: 7px;
+  border-top: 1px solid rgba(209, 201, 255, 0.13);
+  padding-top: 14px;
+}
+
+.account-delete-section label {
+  color: #c1b6c5;
+  font-size: 0.78rem;
+}
+
+.account-delete-section input {
+  width: 100%;
+  border: 1px solid rgba(202, 195, 251, 0.2);
+  border-radius: 13px;
+  padding: 12px 14px;
+  color: #f4f1ff;
+  background: rgba(10, 12, 27, 0.72);
+}
+
+.account-message,
+.account-error,
+.account-notice {
+  margin: 16px 0 0;
+  color: #9ce8d6;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+.account-error {
+  color: #ffb9c6;
+}
+
+.account-notice {
+  border-left: 2px solid #a99aff;
+  padding-left: 13px;
+  color: #d5d1e8;
+}
+
+.account-footnote {
+  margin-top: 24px;
+  font-size: 0.75rem;
+}
+
+@media (max-width: 600px) {
+  .account-overlay {
+    padding: 10px;
+  }
+
+  .account-panel {
+    max-height: 96svh;
+    padding: 28px 20px;
+    border-radius: 21px;
+  }
+
+  .profile-field {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-field > label {
+    grid-column: 1;
+  }
+}

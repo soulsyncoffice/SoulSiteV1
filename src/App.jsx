@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
+import AccountProfilePanel from './AccountProfilePanel.jsx'
 import './App.css'
 
 const tierConfiguration = {
@@ -429,6 +430,7 @@ function App() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [retryCount, setRetryCount] = useState(0)
+  const [isAccountOpen, setIsAccountOpen] = useState(false)
 
   useEffect(() => {
     let isActive = true
@@ -538,6 +540,9 @@ function App() {
           <span>THE FIELD IS OPEN</span>
         </div>
         <div className="tier-picker">
+          <button className="account-launch" onClick={() => setIsAccountOpen(true)} type="button">
+            MY PROFILE
+          </button>
           <label htmlFor="tier">YOUR DAILY RHYTHM</label>
           <select
             id="tier"
@@ -715,6 +720,7 @@ function App() {
           <span>01</span> PRIVATE BY NATURE
         </div>
       </footer>
+      {isAccountOpen ? <AccountProfilePanel onClose={() => setIsAccountOpen(false)} /> : null}
     </div>
   )
 }

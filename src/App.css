@@ -146,6 +146,22 @@
   gap: 5px 14px;
 }
 
+.account-launch {
+  grid-column: 1 / -1;
+  justify-self: end;
+  border: 0;
+  padding: 2px 0;
+  color: #c4b8fb;
+  background: transparent;
+  font-size: 0.58rem;
+  letter-spacing: 0.13em;
+  cursor: pointer;
+}
+
+.account-launch:hover {
+  color: #f3efff;
+}
+
 .tier-picker label {
   grid-column: 1 / -1;
   color: var(--quiet);

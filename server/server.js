@@ -1,15 +1,24 @@
 import express from 'express';
-import cors from 'cors';
+import helmet from 'helmet';
 import Database from 'better-sqlite3';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isAdultAccount } from './accountValidation.js';
+import { hasContactInformation } from './contentPolicy.js';
+import { buildOverviewRequest, parseOverviewResponse } from './overviewGeneration.js';
+import { validateProfilePayload } from './profileValidation.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const dataDir = process.env.SOULSITE_DATA_DIR || path.join(__dirname, 'data');
 const dbPath = path.join(dataDir, 'soulsync.db');
 const staticDir = path.resolve(__dirname, '..', 'dist');
+const supabaseUrl = process.env.SUPABASE_URL || '';
+const supabaseAnonKey = process.env.SUPABASE_ANON_KEY || '';
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const openAiApiKey = process.env.OPENAI_API_KEY || '';
+const overviewModel = process.env.SOULSITE_OVERVIEW_MODEL || 'gpt-4.1-mini';
 
 fs.mkdirSync(dataDir, { recursive: true });
 
@@ -40,6 +49,15 @@ db.exec(`
     date_key TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
+
+  CREATE TABLE IF NOT EXISTS overview_generation_requests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    requested_at TEXT NOT NULL
+  );
+
+  CREATE INDEX IF NOT EXISTS overview_generation_requests_user_time
+    ON overview_generation_requests (user_id, requested_at);
 `);
 
 const profiles = [
@@ -124,8 +142,102 @@ for (const profile of profiles) {
 const tierConfig = { Free: 5, Standard: 20, Pro: 50 };
 
 const app = express();
-app.use(cors());
+const supabaseOrigin = supabaseUrl ? new URL(supabaseUrl).origin : null;
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      imgSrc: ["'self'", 'data:', 'blob:'],
+      fontSrc: ["'self'", 'data:'],
+      connectSrc: ["'self'", ...(supabaseOrigin ? [supabaseOrigin] : [])],
+      workerSrc: ["'self'", 'blob:'],
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+      frameAncestors: ["'none'"],
+      upgradeInsecureRequests: null,
+    },
+  },
+}));
 app.use(express.json({ limit: '1mb' }));
+
+async function requireAuthentication(req, res, next) {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return res.status(503).json({ message: 'Account services are not configured.' });
+  }
+
+  const authorization = req.get('authorization') || '';
+  const token = authorization.match(/^Bearer\s+(\S+)$/i)?.[1];
+  if (!token) {
+    return res.status(401).json({ message: 'Sign in to access this profile.' });
+  }
+
+  try {
+    const response = await fetch(`${supabaseUrl.replace(/\/$/, '')}/auth/v1/user`, {
+      signal: AbortSignal.timeout(10000),
+      headers: {
+        apikey: supabaseAnonKey,
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    if (!response.ok) {
+      return res.status(401).json({ message: 'Your session is invalid or has expired. Sign in again.' });
+    }
+
+    const user = await response.json();
+    if (!user.id) {
+      return res.status(401).json({ message: 'Your session is invalid or has expired. Sign in again.' });
+    }
+
+    req.authenticatedUser = user;
+    req.accessToken = token;
+    return next();
+  } catch (error) {
+    console.error('Account identity verification failed:', error.message);
+    return res.status(503).json({ message: 'Account verification is temporarily unavailable.' });
+  }
+}
+
+function requireAdultAccount(req, res, next) {
+  if (!isAdultAccount(req.authenticatedUser)) {
+    return res.status(403).json({ message: 'SoulSite is for adults 18 and over. Account age checks are self-reported.' });
+  }
+  return next();
+}
+
+async function requestPrivateProfile(req, method, payload) {
+  if (!supabaseServiceRoleKey) {
+    throw new Error('Private profile storage is not configured.');
+  }
+
+  const url = new URL(`${supabaseUrl.replace(/\/$/, '')}/rest/v1/private_profiles`);
+  url.searchParams.set('select', 'profile,visibility,overview,updated_at');
+  url.searchParams.set('id', `eq.${req.authenticatedUser.id}`);
+
+  const headers = {
+    apikey: supabaseServiceRoleKey,
+    Authorization: `Bearer ${supabaseServiceRoleKey}`,
+    Accept: 'application/json',
+  };
+  if (payload) {
+    headers['Content-Type'] = 'application/json';
+    headers.Prefer = 'resolution=merge-duplicates,return=representation';
+  }
+
+  const response = await fetch(url, {
+    method,
+    signal: AbortSignal.timeout(10000),
+    headers,
+    ...(payload ? { body: JSON.stringify(payload) } : {}),
+  });
+  if (!response.ok) {
+    console.error(`Private profile request failed with status ${response.status}.`);
+    throw new Error('Profile storage is temporarily unavailable.');
+  }
+  return response.status === 204 ? [] : response.json();
+}
 
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok' });
@@ -167,6 +279,171 @@ app.get('/api/profiles', (_req, res) => {
     score: getCompatibilityScore(JSON.parse(profile.compatibility)),
   }));
   res.json({ profiles: serialized });
+});
+
+app.get('/api/me/profile', requireAuthentication, requireAdultAccount, async (req, res) => {
+  try {
+    const records = await requestPrivateProfile(req, 'GET');
+    const record = records[0];
+    return res.json({
+      profile: record?.profile ?? {},
+      visibility: record?.visibility ?? {},
+      overview: record?.overview ?? '',
+      updatedAt: record?.updated_at ?? null,
+    });
+  } catch (error) {
+    console.error('Could not load private profile:', error.message);
+    return res.status(503).json({ message: error.message });
+  }
+});
+
+app.put('/api/me/profile', requireAuthentication, requireAdultAccount, async (req, res) => {
+  const payload = req.body && typeof req.body === 'object'
+    ? {
+        ...req.body,
+        profile: {
+          ...req.body.profile,
+          age: req.body.profile?.age || String(req.authenticatedUser.user_metadata?.age ?? ''),
+        },
+      }
+    : req.body;
+  const validated = validateProfilePayload(payload);
+  if (validated.error) return res.status(400).json({ message: validated.error });
+  if (!validated.profile.age) {
+    return res.status(400).json({ message: 'Confirm that you are at least 18 by entering your age before saving.' });
+  }
+
+  try {
+    const records = await requestPrivateProfile(req, 'POST', {
+      id: req.authenticatedUser.id,
+      profile: validated.profile,
+      visibility: validated.visibility,
+      overview: validated.overview ?? null,
+    });
+    const record = records[0];
+    if (!record) throw new Error('Profile storage did not confirm the saved profile.');
+    return res.json({
+      profile: record.profile,
+      visibility: record.visibility,
+      overview: record.overview,
+      updatedAt: record.updated_at,
+    });
+  } catch (error) {
+    console.error('Could not save private profile:', error.message);
+    return res.status(503).json({ message: error.message });
+  }
+});
+
+app.post('/api/me/overview', requireAuthentication, requireAdultAccount, async (req, res) => {
+  if (req.body?.consentToExternalProcessing !== true) {
+    return res.status(400).json({ message: 'Explicit consent to send your saved profile answers to the configured overview provider is required.' });
+  }
+  if (!openAiApiKey) {
+    return res.status(503).json({ message: 'SoulMind story generation is not configured on this deployment.' });
+  }
+
+  const userId = req.authenticatedUser.id;
+  db.prepare(`DELETE FROM overview_generation_requests WHERE requested_at < datetime('now', '-1 day')`).run();
+  const recentRequests = Number(db.prepare(`
+    SELECT COUNT(*) AS count
+    FROM overview_generation_requests
+    WHERE user_id = ? AND requested_at >= datetime('now', '-1 hour')
+  `).get(userId)?.count ?? 0);
+  if (recentRequests >= 3) {
+    return res.status(429).json({ message: 'SoulMind story requests are limited to three per hour. Please try again later.' });
+  }
+  db.prepare('INSERT INTO overview_generation_requests (user_id, requested_at) VALUES (?, CURRENT_TIMESTAMP)').run(userId);
+
+  try {
+    const records = await requestPrivateProfile(req, 'GET');
+    const savedProfile = records[0];
+    if (!savedProfile?.profile || !savedProfile.profile.age) {
+      return res.status(400).json({ message: 'Save your profile and confirm your age before asking SoulMind to write an overview.' });
+    }
+
+    const providerResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      signal: AbortSignal.timeout(45000),
+      headers: {
+        Authorization: `Bearer ${openAiApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: overviewModel,
+        messages: buildOverviewRequest(savedProfile.profile),
+        response_format: { type: 'json_object' },
+        max_completion_tokens: 1000,
+        temperature: 0.4,
+      }),
+    });
+
+    if (!providerResponse.ok) {
+      console.error(`SoulMind overview provider returned status ${providerResponse.status}.`);
+      return res.status(502).json({ message: 'SoulMind could not reach the story service. Try again later.' });
+    }
+
+    const providerPayload = await providerResponse.json();
+    const content = providerPayload.choices?.[0]?.message?.content;
+    const generated = parseOverviewResponse(content, savedProfile.profile);
+    if (generated.status === 'needs_more_information') {
+      return res.json(generated);
+    }
+    if (hasContactInformation(generated.overview)) {
+      return res.status(502).json({ message: 'The generated draft included contact details and was not saved. Review your profile answers and try again.' });
+    }
+
+    const updated = await requestPrivateProfile(req, 'POST', {
+      id: req.authenticatedUser.id,
+      profile: savedProfile.profile,
+      visibility: savedProfile.visibility,
+      overview: generated.overview,
+    });
+    if (!updated[0]) throw new Error('Profile storage did not confirm the saved overview.');
+
+    return res.json({
+      status: 'ready',
+      overview: updated[0].overview,
+      updatedAt: updated[0].updated_at,
+    });
+  } catch (error) {
+    console.error('Could not generate a private profile overview:', error.message);
+    return res.status(502).json({ message: error.message.includes('exactly 500 words')
+      ? error.message
+      : 'SoulMind could not finish the story. Add more specific profile details and try again.' });
+  }
+});
+
+app.delete('/api/me/account', requireAuthentication, async (req, res) => {
+  try {
+    const response = await fetch(`${supabaseUrl.replace(/\/$/, '')}/rest/v1/rpc/delete_own_auth_user`, {
+      method: 'POST',
+      headers: {
+        apikey: supabaseAnonKey,
+        Authorization: `Bearer ${req.accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: '{}',
+    });
+    if (!response.ok) {
+      console.error(`Account deletion request failed with status ${response.status}.`);
+      return res.status(503).json({ message: 'Account deletion is temporarily unavailable.' });
+    }
+    db.prepare('DELETE FROM overview_generation_requests WHERE user_id = ?').run(req.authenticatedUser.id);
+    return res.status(204).end();
+  } catch (error) {
+    console.error('Could not delete account:', error.message);
+    return res.status(503).json({ message: 'Account deletion is temporarily unavailable.' });
+  }
+});
+
+app.delete('/api/me/profile', requireAuthentication, async (req, res) => {
+  try {
+    await requestPrivateProfile(req, 'DELETE');
+    return res.status(204).end();
+  } catch (error) {
+    console.error('Could not delete private profile:', error.message);
+    return res.status(503).json({ message: error.message });
+  }
 });
 
 app.post('/api/decision', (req, res) => {
