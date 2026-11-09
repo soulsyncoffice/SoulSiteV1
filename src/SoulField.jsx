@@ -56,14 +56,6 @@ const cooperativeEvent = {
   ],
 }
 
-const sections = [
-  ['play', 'Play'],
-  ['connections', 'Connections'],
-  ['trust', 'Trust'],
-  ['progression', 'Progression'],
-  ['profile', 'Profile builder'],
-]
-
 function readDesk() {
   try {
     return JSON.parse(localStorage.getItem(storageKey) || '{}')
@@ -181,7 +173,7 @@ function SoulGame() {
   )
 }
 
-function ConnectionsDesk() {
+function ConnectionsDesk({ part = 'icebreakers' }) {
   const [desk, setDesk] = useState(readDesk)
   const prompt = { id: `daily-${todayKey()}`, date: todayKey(), prompt: 'What would make an ordinary evening feel well spent?' }
   const proposals = desk.proposals || []
@@ -194,15 +186,15 @@ function ConnectionsDesk() {
 
   return (
     <div className="field-stack">
-      <DailyIcebreaker
+      {part === 'icebreakers' ? <DailyIcebreaker
         prompt={prompt}
         ownSubmitted={Boolean(desk.icebreaker)}
         partnerSubmitted={false}
         ownAnswer={desk.icebreaker}
         onSubmitAnswer={async ({ answer }) => save({ ...readDesk(), icebreaker: answer })}
         onSkip={async () => save({ ...readDesk(), icebreaker: '' })}
-      />
-      <CuratedDateProposals
+      /> : null}
+      {part === 'dates' ? <CuratedDateProposals
         activities={activities}
         proposals={proposals}
         onPropose={async (draft) => {
@@ -223,8 +215,8 @@ function ConnectionsDesk() {
           ...readDesk(),
           proposals: (readDesk().proposals || []).map((item) => item.id === proposalId ? { ...item, status: 'cancelled', permissions: { canRespond: false, canCancel: false } } : item),
         })}
-      />
-      <MutualActivities
+      /> : null}
+      {part === 'activities' ? <MutualActivities
         activities={activities}
         consentByActivity={consentByActivity}
         onSetConsent={async ({ activityId, accepted }) => save({
@@ -234,13 +226,13 @@ function ConnectionsDesk() {
             [activityId]: { ownAccepted: accepted, partnerAccepted: false },
           },
         })}
-      />
-      <PrivateCallSurface capability={{ providerReady: false }} />
+      /> : null}
+      {part === 'voice' ? <PrivateCallSurface capability={{ providerReady: false }} /> : null}
     </div>
   )
 }
 
-function ProgressionDesk() {
+function ProgressionDesk({ part = 'prompts' }) {
   const [consent, setConsent] = useState({ status: 'inactive', selfConsent: false, partnerConsent: false })
   const [steps, setSteps] = useState([])
   const [left, setLeft] = useState({ conversationPace: 3, weekendRhythm: 3, planningStyle: 3, socialEnergy: 3 })
@@ -248,14 +240,14 @@ function ProgressionDesk() {
 
   return (
     <div className="field-stack">
-      <IcebreakerGame />
-      <DailyReflection
+      {part === 'prompts' ? <IcebreakerGame /> : null}
+      {part === 'reflection' ? <DailyReflection
         day={todayKey()}
         moderateText={async (text) => approveText(text)}
         onSave={async (entry) => writeDesk({ ...readDesk(), reflection: entry })}
         onRetract={async () => writeDesk({ ...readDesk(), reflection: null })}
-      />
-      <MutualProgression
+      /> : null}
+      {part === 'consent' ? <><MutualProgression
         state={consent}
         onAction={async ({ type }) => {
           if (type === 'request') setConsent({ status: 'pending', selfConsent: true, partnerConsent: false })
@@ -264,7 +256,8 @@ function ProgressionDesk() {
         }}
       />
       <CooperativeEvent event={cooperativeEvent} consentState={consent} completedStepIds={steps} onComplete={({ stepId }) => setSteps((current) => [...current, stepId])} />
-      <AlignmentReflection leftPreferences={left} rightPreferences={right} />
+      </> : null}
+      {part === 'alignment' ? <><AlignmentReflection leftPreferences={left} rightPreferences={right} />
       <div className="field-sliders">
         {ALIGNMENT_DIMENSIONS.map((dimension) => (
           <label key={dimension.id}>
@@ -274,18 +267,17 @@ function ProgressionDesk() {
             <input type="range" min="1" max="5" value={right[dimension.id]} onChange={(event) => setRight((current) => ({ ...current, [dimension.id]: Number(event.target.value) }))} />
           </label>
         ))}
-      </div>
-      <FeedbackSafetyForm
+      </div></> : null}
+      {part === 'safety' ? <FeedbackSafetyForm
         moderateText={async (text) => approveText(text)}
         onFeedback={async (payload) => writeDesk({ ...readDesk(), feedback: [...(readDesk().feedback || []), payload] })}
         onReport={async (payload) => writeDesk({ ...readDesk(), reports: [...(readDesk().reports || []), payload] })}
-      />
+      /> : null}
     </div>
   )
 }
 
-export default function SoulField({ profiles = [], onClose }) {
-  const [section, setSection] = useState('play')
+export default function SoulField({ profiles = [], onClose, section = 'play', sub = '', inline = false }) {
   const discoveryProfiles = useMemo(() => profiles.map((profile) => ({
     profileId: profile.id,
     displayName: profile.name,
@@ -295,23 +287,10 @@ export default function SoulField({ profiles = [], onClose }) {
     cultureInterests: [],
   })), [profiles])
 
-  return (
-    <div className="field-overlay">
-      <div className="field-panel">
-        <header className="field-bar">
-          <div>
-            <p className="field-kicker">Recovered from unmerged branches</p>
-            <h2>The field desk</h2>
-          </div>
-          <button type="button" onClick={onClose}>Back to home</button>
-        </header>
-        <nav className="field-tabs" aria-label="Recovered features">
-          {sections.map(([id, label]) => (
-            <button key={id} type="button" aria-pressed={section === id} onClick={() => setSection(id)}>{label}</button>
-          ))}
-        </nav>
+  const body = (
+    <>
         {section === 'play' ? <SoulGame /> : null}
-        {section === 'connections' ? <ConnectionsDesk /> : null}
+        {section === 'connections' ? <ConnectionsDesk part={sub || 'icebreakers'} /> : null}
         {section === 'trust' ? (
           <TrustPrivacyHub
             discoveryProfiles={discoveryProfiles}
@@ -335,7 +314,7 @@ export default function SoulField({ profiles = [], onClose }) {
             onDeleteJournalEntries={async () => writeDesk({ ...readDesk(), journal: [] })}
           />
         ) : null}
-        {section === 'progression' ? <ProgressionDesk /> : null}
+        {section === 'progression' ? <ProgressionDesk part={sub || 'prompts'} /> : null}
         {section === 'profile' ? (
           <ProfileBuilder
             initialProfile={readDesk().profileBuilder || {}}
@@ -357,6 +336,14 @@ export default function SoulField({ profiles = [], onClose }) {
             })}
           />
         ) : null}
+    </>
+  )
+  if (inline) return <div className="field-inline">{body}</div>
+  return (
+    <div className="field-overlay">
+      <div className="field-panel">
+        <button type="button" onClick={onClose}>Back to home</button>
+        {body}
       </div>
     </div>
   )

@@ -19,7 +19,7 @@ export function validateProfilePayload(payload) {
   if (overview !== null && typeof overview !== 'string') {
     return { error: 'The generated overview must be text.' }
   }
-  if (overview && (overview.length > 6000 || hasContactInformation(overview))) {
+  if (overview && (overview.length > 20000 || hasContactInformation(overview))) {
     return { error: 'The generated overview is too long or contains contact details.' }
   }
 

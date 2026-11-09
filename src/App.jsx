@@ -1,9 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
-import AccountProfilePanel from './AccountProfilePanel.jsx'
 import SoulField from './SoulField.jsx'
+import {
+  IntroOverlay,
+  MapDesk,
+  ProfileDesk,
+  SettingsDesk,
+  SignInDesk,
+  SiteHeader,
+  useSiteRoute,
+} from './siteChrome.jsx'
 import './App.css'
+import './siteChrome.css'
 
 const tierConfiguration = {
   Free: 5,
@@ -23,6 +32,9 @@ async function request(path, options = {}) {
     ...options,
     headers: {
       'Content-Type': 'application/json',
+      ...(localStorage.getItem('soulsite.localToken')
+        ? { Authorization: `Bearer local.${localStorage.getItem('soulsite.localToken')}` }
+        : {}),
       ...options.headers,
     },
   })
@@ -406,17 +418,6 @@ function Cosmos({ accent }) {
   )
 }
 
-function BrandMark() {
-  return (
-    <svg aria-hidden="true" className="brand-mark" viewBox="0 0 40 40">
-      <circle cx="20" cy="20" r="15.5" />
-      <ellipse cx="20" cy="20" rx="7" ry="15.5" />
-      <ellipse cx="20" cy="20" rx="15.5" ry="6.5" transform="rotate(-32 20 20)" />
-      <circle className="brand-star" cx="31" cy="10" r="2.2" />
-    </svg>
-  )
-}
-
 function App() {
   const [tier, setTier] = useState('Free')
   const [tiers, setTiers] = useState(tierConfiguration)
@@ -431,8 +432,7 @@ function App() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [retryCount, setRetryCount] = useState(0)
-  const [isAccountOpen, setIsAccountOpen] = useState(false)
-  const [isFieldOpen, setIsFieldOpen] = useState(false)
+  const site = useSiteRoute()
 
   useEffect(() => {
     let isActive = true
@@ -532,37 +532,9 @@ function App() {
       <Cosmos accent={currentProfile?.accent} />
       <div aria-hidden="true" className="ambient-vignette" />
 
-      <header className="topbar">
-        <a aria-label="SoulSite home" className="brand" href="/">
-          <BrandMark />
-          <span>Soul<span className="brand-light">Site</span></span>
-        </a>
-        <div className="topbar-center">
-          <span className="live-indicator" />
-          <span>THE FIELD IS OPEN</span>
-        </div>
-        <div className="tier-picker">
-          <button className="account-launch" onClick={() => setIsFieldOpen(true)} type="button">
-            PLAY
-          </button>
-          <button className="account-launch" onClick={() => setIsAccountOpen(true)} type="button">
-            MY PROFILE
-          </button>
-          <label htmlFor="tier">YOUR DAILY RHYTHM</label>
-          <select
-            id="tier"
-            value={tier}
-            onChange={(event) => handleTierChange(event.target.value)}
-          >
-            {Object.keys(tiers).map((option) => (
-              <option key={option} value={option}>{option}</option>
-            ))}
-          </select>
-          <span aria-hidden="true" className="select-chevron">⌄</span>
-        </div>
-      </header>
-
-      <main className="discovery-grid">
+      <SiteHeader onNavigate={site.navigate} route={site.route} user={site.user} />
+      <div className="view-stage" key={`${site.route.tab}-${site.route.sub}`}>
+      {site.route.tab === 'home' ? <><main className="discovery-grid">
         <section aria-label="About this connection" className="story-stream">
           <div className="encounter-count">
             <span className="section-index">01</span>
@@ -617,7 +589,11 @@ function App() {
                     <span className="identity-dot">·</span>
                     {currentProfile.distance || 'NEARBY'}
                   </span>
-                  <h2>{currentProfile.name || 'A new connection'}</h2>
+                  <h2>
+                    <button className="soul-open" onClick={() => site.navigate(site.user ? 'profile' : 'signin', site.user ? 'editor' : '')} type="button">
+                      {currentProfile.name || 'A new connection'}
+                    </button>
+                  </h2>
                 </div>
               </>
             ) : (
@@ -703,7 +679,7 @@ function App() {
             aria-label="Pass on this connection"
             className="decision-button pass-button"
             disabled={!currentProfile || isSubmitting}
-            onClick={() => handleDecisionClick(false)}
+            onClick={() => site.user ? handleDecisionClick(false) : site.navigate('signin')}
             type="button"
           >
             <span aria-hidden="true" className="decision-icon">−</span>
@@ -713,20 +689,29 @@ function App() {
           <button
             aria-label="Express interest in this connection"
             className="decision-button yes-button"
-            disabled={!currentProfile || isSubmitting || remainingSelections === 0}
-            onClick={() => handleDecisionClick(true)}
+            disabled={!currentProfile || isSubmitting || (site.user && remainingSelections === 0)}
+            onClick={() => site.user ? handleDecisionClick(true) : site.navigate('signin')}
             type="button"
           >
             <span aria-hidden="true" className="decision-icon">✳</span>
-            <span>{isSubmitting ? 'SENDING YOUR SIGNAL…' : 'I’M CURIOUS'}</span>
+            <span>{!site.user ? 'SIGN IN TO SWIPE' : isSubmitting ? 'SENDING YOUR SIGNAL…' : 'I’M CURIOUS'}</span>
           </button>
         </div>
         <div aria-hidden="true" className="privacy-promise">
           <span>01</span> PRIVATE BY NATURE
         </div>
       </footer>
-      {isAccountOpen ? <AccountProfilePanel onClose={() => setIsAccountOpen(false)} /> : null}
-      {isFieldOpen ? <SoulField profiles={profiles} onClose={() => setIsFieldOpen(false)} /> : null}
+      </> : null}
+      {site.route.tab === 'play' ? <SoulField inline profiles={profiles} section="play" /> : null}
+      {site.route.tab === 'connections' ? <SoulField inline profiles={profiles} section="connections" sub={site.route.sub || 'icebreakers'} /> : null}
+      {site.route.tab === 'trust' ? <SoulField inline profiles={profiles} section="trust" /> : null}
+      {site.route.tab === 'progression' ? <SoulField inline profiles={profiles} section="progression" sub={site.route.sub || 'prompts'} /> : null}
+      {site.route.tab === 'profile' ? <ProfileDesk onOpenSignIn={() => site.navigate('signin')} sub={site.route.sub || 'editor'} token={site.token} /> : null}
+      {site.route.tab === 'map' ? <MapDesk onOpenSignIn={() => site.navigate('signin')} /> : null}
+      {site.route.tab === 'settings' ? <SettingsDesk onPlan={handleTierChange} onSignOut={site.signOut} token={site.token} user={site.user} /> : null}
+      {site.route.tab === 'signin' ? <SignInDesk onSignedIn={site.signIn} /> : null}
+      </div>
+      {site.intro ? <IntroOverlay onSkip={site.dismissIntro} /> : null}
     </div>
   )
 }
