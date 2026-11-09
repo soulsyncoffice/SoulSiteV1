@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import AccountProfilePanel from './AccountProfilePanel.jsx'
+import SoulField from './SoulField.jsx'
 import './App.css'
 
 const tierConfiguration = {
@@ -431,6 +432,7 @@ function App() {
   const [error, setError] = useState('')
   const [retryCount, setRetryCount] = useState(0)
   const [isAccountOpen, setIsAccountOpen] = useState(false)
+  const [isFieldOpen, setIsFieldOpen] = useState(false)
 
   useEffect(() => {
     let isActive = true
@@ -540,6 +542,9 @@ function App() {
           <span>THE FIELD IS OPEN</span>
         </div>
         <div className="tier-picker">
+          <button className="account-launch" onClick={() => setIsFieldOpen(true)} type="button">
+            PLAY
+          </button>
           <button className="account-launch" onClick={() => setIsAccountOpen(true)} type="button">
             MY PROFILE
           </button>
@@ -721,6 +726,7 @@ function App() {
         </div>
       </footer>
       {isAccountOpen ? <AccountProfilePanel onClose={() => setIsAccountOpen(false)} /> : null}
+      {isFieldOpen ? <SoulField profiles={profiles} onClose={() => setIsFieldOpen(false)} /> : null}
     </div>
   )
 }

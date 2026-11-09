@@ -1,0 +1,122 @@
+.field-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  overflow: auto;
+  background: rgba(6, 7, 16, 0.92);
+  color: #f5f3ff;
+}
+
+.field-panel {
+  width: min(1120px, calc(100% - 32px));
+  margin: 24px auto 64px;
+}
+
+.field-bar,
+.field-tabs,
+.field-game,
+.field-stack {
+  display: flex;
+  gap: 16px;
+}
+
+.field-bar {
+  align-items: center;
+  justify-content: space-between;
+}
+
+.field-bar h2,
+.field-game h2 {
+  margin: 0;
+}
+
+.field-kicker,
+.field-note {
+  color: #b8b6d4;
+  font-size: 0.85rem;
+}
+
+.field-tabs {
+  flex-wrap: wrap;
+  margin: 18px 0;
+}
+
+.field-tabs button,
+.field-bar button,
+.field-pad button,
+.field-player-switch button {
+  border: 1px solid rgba(200, 198, 255, 0.28);
+  border-radius: 999px;
+  background: transparent;
+  color: inherit;
+  padding: 8px 14px;
+}
+
+.field-tabs button[aria-pressed='true'],
+.field-player-switch button[aria-pressed='true'] {
+  background: #f5f3ff;
+  color: #12121c;
+}
+
+.field-game {
+  align-items: start;
+  display: grid;
+  grid-template-columns: minmax(240px, 360px) 1fr;
+}
+
+.field-game-copy,
+.field-stack {
+  display: grid;
+  gap: 12px;
+}
+
+.field-board {
+  display: grid;
+  grid-template-columns: repeat(var(--cols), 42px);
+  gap: 4px;
+  justify-content: center;
+}
+
+.field-tile {
+  position: relative;
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #f5f3ff;
+  font-size: 0.75rem;
+}
+
+.field-tile.tile-wall {
+  background: #241c3d;
+}
+
+.field-tile.has-player {
+  outline: 2px solid #f4a2ff;
+}
+
+.field-tile i {
+  position: absolute;
+  right: 4px;
+  bottom: 2px;
+  font-style: normal;
+  color: #f4a2ff;
+}
+
+.field-pad {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.field-sliders {
+  display: grid;
+  gap: 12px;
+}
+
+@media (max-width: 800px) {
+  .field-game {
+    grid-template-columns: 1fr;
+  }
+}

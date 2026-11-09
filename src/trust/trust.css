@@ -1,0 +1,259 @@
+.trust-hub {
+  --trust-accent: #c4b5fd;
+  --trust-muted: #b9b3c8;
+  --trust-line: rgba(226, 218, 255, 0.16);
+  --trust-surface: rgba(26, 23, 44, 0.82);
+  box-sizing: border-box;
+  color: #f7f4ff;
+  display: grid;
+  font: inherit;
+  gap: 1.25rem;
+  margin: 0 auto;
+  max-width: 920px;
+  padding: 2rem 1rem 4rem;
+}
+
+.trust-hub *,
+.trust-hub *::before,
+.trust-hub *::after {
+  box-sizing: border-box;
+}
+
+.trust-header,
+.trust-section {
+  background: var(--trust-surface);
+  border: 1px solid var(--trust-line);
+  border-radius: 1rem;
+  padding: clamp(1rem, 3vw, 1.5rem);
+}
+
+.trust-header h1,
+.trust-section h2,
+.trust-candidate h3,
+.trust-checkin h3 {
+  color: #fff;
+  margin: 0 0 0.75rem;
+}
+
+.trust-header p,
+.trust-section p {
+  color: var(--trust-muted);
+  line-height: 1.6;
+  margin: 0.5rem 0 1rem;
+}
+
+.trust-header .trust-eyebrow {
+  color: var(--trust-accent);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.trust-section h2 {
+  border-bottom: 1px solid var(--trust-line);
+  font-size: 1.2rem;
+  padding-bottom: 0.75rem;
+}
+
+.trust-form,
+.trust-stack {
+  display: grid;
+  gap: 1rem;
+}
+
+.trust-prompt-list {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.trust-prompt-list > span {
+  color: #ece8f8;
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.trust-prompt-list button {
+  justify-self: stretch;
+  text-align: left;
+}
+
+.trust-form {
+  margin: 1rem 0 1.5rem;
+}
+
+.trust-field {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.trust-field > span,
+.trust-check {
+  color: #ece8f8;
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.trust-field input,
+.trust-field select,
+.trust-field textarea {
+  background: rgba(7, 6, 18, 0.72);
+  border: 1px solid var(--trust-line);
+  border-radius: 0.6rem;
+  color: #fff;
+  font: inherit;
+  min-height: 2.8rem;
+  padding: 0.7rem 0.8rem;
+  width: 100%;
+}
+
+.trust-field textarea {
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.trust-field option {
+  background: #171426;
+}
+
+.trust-field small,
+.trust-hub small {
+  color: var(--trust-muted);
+  font-weight: 400;
+}
+
+.trust-check {
+  align-items: start;
+  display: flex;
+  gap: 0.7rem;
+  line-height: 1.5;
+}
+
+.trust-check input {
+  accent-color: #a78bfa;
+  flex: 0 0 auto;
+  height: 1rem;
+  margin-top: 0.2rem;
+  width: 1rem;
+}
+
+.trust-hub button {
+  background: #9c83ef;
+  border: 0;
+  border-radius: 0.6rem;
+  color: #171126;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  justify-self: start;
+  min-height: 2.6rem;
+  padding: 0.6rem 1rem;
+}
+
+.trust-hub button:hover {
+  background: #b7a5ff;
+}
+
+.trust-hub button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.trust-hub .trust-button-secondary {
+  background: transparent;
+  border: 1px solid var(--trust-line);
+  color: #f0ebff;
+}
+
+.trust-actions,
+.trust-checkin {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+}
+
+.trust-checkin {
+  border-top: 1px solid var(--trust-line);
+  padding-top: 1rem;
+}
+
+.trust-checkin h3 {
+  flex-basis: 100%;
+  font-size: 1rem;
+}
+
+.trust-consent-state {
+  background: rgba(167, 139, 250, 0.12);
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+}
+
+.trust-candidate-list {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr));
+}
+
+.trust-candidate {
+  background: rgba(7, 6, 18, 0.46);
+  border: 1px solid var(--trust-line);
+  border-radius: 0.75rem;
+  min-width: 0;
+  padding: 1rem;
+}
+
+.trust-candidate-heading {
+  align-items: start;
+  display: flex;
+  gap: 0.75rem;
+  justify-content: space-between;
+}
+
+.trust-candidate-heading h3 {
+  font-size: 1rem;
+}
+
+.trust-candidate-heading p,
+.trust-candidate > p {
+  margin: 0.4rem 0 0.8rem;
+}
+
+.trust-candidate .trust-area {
+  color: var(--trust-accent);
+}
+
+.trust-candidate .trust-report {
+  border-top: 1px solid var(--trust-line);
+  margin-top: 0.9rem;
+  padding-top: 0.8rem;
+}
+
+.trust-report summary {
+  color: #e7deff;
+  cursor: pointer;
+}
+
+.trust-report .trust-form {
+  margin-bottom: 0;
+}
+
+.trust-status {
+  color: #bdf2d5 !important;
+  font-size: 0.9rem;
+  margin: 0 !important;
+}
+
+.trust-status.is-error {
+  color: #ffc6c6 !important;
+}
+
+@media (max-width: 520px) {
+  .trust-hub {
+    padding-inline: 0.75rem;
+  }
+
+  .trust-candidate-heading {
+    align-items: start;
+  }
+}

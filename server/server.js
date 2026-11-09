@@ -8,6 +8,8 @@ import { isAdultAccount } from './accountValidation.js';
 import { hasContactInformation } from './contentPolicy.js';
 import { buildOverviewRequest, parseOverviewResponse } from './overviewGeneration.js';
 import { validateProfilePayload } from './profileValidation.js';
+import { createLocalAuth } from './localSession.js';
+import { areaById, areaForProfile, mapAreas } from './mapAreas.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -115,6 +117,123 @@ const profiles = [
       money: 73,
     },
   },
+  {
+    id: 'mica',
+    name: 'Mica',
+    age: 34,
+    distance: 'Glass Orchard',
+    intention: 'A steady, curious companionship',
+    energy: 'Studio mornings, soup for friends, unhurried texts',
+    tags: ['Ceramics', 'Crosswords', 'Rain walks'],
+    values: ['Repair over performance', 'Shared silence', 'Gentle humor'],
+    bio: 'I am at my best when a conversation can wander without anyone trying to win it. I like making things with my hands and learning how other people spend an ordinary Tuesday.',
+    accent: '#f2c14e',
+    compatibility: { pace: 86, values: 91, lifestyle: 80, money: 77 },
+  },
+  {
+    id: 'oren',
+    name: 'Oren',
+    age: 28,
+    distance: 'Moonmarket',
+    intention: 'Friendship that might turn romantic',
+    energy: 'Night markets, playlists, spontaneous museums',
+    tags: ['Street food', 'Film scores', 'Board games'],
+    values: ['Warm honesty', 'Shared curiosity', 'No rush'],
+    bio: 'I collect small rituals: a good dumpling, a film I can quote badly, and people who text back when they mean it. I am looking for someone who can be playful and sincere in the same evening.',
+    accent: '#ff8b6a',
+    compatibility: { pace: 74, values: 83, lifestyle: 90, money: 70 },
+  },
+  {
+    id: 'juniper',
+    name: 'Juniper',
+    age: 36,
+    distance: 'Northline Gardens',
+    intention: 'Serious relationship',
+    energy: 'Garden plots, long letters, early nights',
+    tags: ['Growing things', 'Libraries', 'Folk music'],
+    values: ['Steadiness', 'Kind boundaries', 'Showing up'],
+    bio: 'I have a soft spot for people who notice the weather and still keep their promises. My ideal connection has room for quiet, for jokes, and for telling the truth without making it a performance.',
+    accent: '#8fd18a',
+    compatibility: { pace: 90, values: 94, lifestyle: 86, money: 81 },
+  },
+  {
+    id: 'sable',
+    name: 'Sable',
+    age: 32,
+    distance: 'Harbor District',
+    intention: 'Slow dating with a clear heart',
+    energy: 'Ferry rides, notebooks, one good question',
+    tags: ['Writing', 'Swimming', 'Jazz bars'],
+    values: ['Direct kindness', 'Emotional range', 'Shared effort'],
+    bio: 'I like people who can say what they want without shrinking the other person. I am affectionate, a little nocturnal, and happiest when plans feel chosen rather than performed.',
+    accent: '#7aa2ff',
+    compatibility: { pace: 81, values: 88, lifestyle: 76, money: 84 },
+  },
+  {
+    id: 'quill',
+    name: 'Quill',
+    age: 30,
+    distance: 'Lantern Quarter',
+    intention: 'Dating with room to become serious',
+    energy: 'Bookshops, late tea, collaborative playlists',
+    tags: ['Poetry', 'Cooking', 'Trivia'],
+    values: ['Wit with warmth', 'Consent', 'Curiosity'],
+    bio: 'I am the person who will ask a slightly odd question and then actually listen to the answer. I want a connection that can hold both tenderness and a well-timed joke.',
+    accent: '#e7a0ff',
+    compatibility: { pace: 78, values: 89, lifestyle: 84, money: 73 },
+  },
+  {
+    id: 'moss',
+    name: 'Moss',
+    age: 27,
+    distance: 'Cedar Ridge',
+    intention: 'Friendship first, romance if it fits',
+    energy: 'Trail mornings, thrift finds, low-stakes hangouts',
+    tags: ['Hiking', 'Thrifting', 'Birds'],
+    values: ['Ease', 'Honesty', 'Outside time'],
+    bio: 'I do not need a grand story on day one. I like walking until the conversation gets interesting, then seeing whether we both want to do it again.',
+    accent: '#74e9d8',
+    compatibility: { pace: 83, values: 80, lifestyle: 92, money: 76 },
+  },
+  {
+    id: 'indigo',
+    name: 'Indigo',
+    age: 33,
+    distance: 'Glass Orchard',
+    intention: 'A thoughtful relationship',
+    energy: 'Rehearsal rooms, shared cooking, Sunday resets',
+    tags: ['Choir', 'Baking', 'City walks'],
+    values: ['Harmony', 'Follow-through', 'Soft ambition'],
+    bio: 'I care about how people treat the unglamorous parts of a week. I am looking for someone who can be romantic without losing their practical kindness.',
+    accent: '#9b8cff',
+    compatibility: { pace: 88, values: 90, lifestyle: 85, money: 79 },
+  },
+  {
+    id: 'pebble',
+    name: 'Pebble',
+    age: 26,
+    distance: 'Moonmarket',
+    intention: 'Light dating with emotional honesty',
+    energy: 'Arcade nights, zines, spontaneous picnics',
+    tags: ['Zines', 'Arcade games', 'Picnics'],
+    values: ['Play', 'Clear asks', 'No scorekeeping'],
+    bio: 'I am playful, a bit chaotic, and surprisingly punctual. I want someone who can be silly in public and gentle when the day has been long.',
+    accent: '#ffb4d9',
+    compatibility: { pace: 70, values: 82, lifestyle: 87, money: 68 },
+  },
+  {
+    id: 'lumen',
+    name: 'Lumen',
+    age: 38,
+    distance: 'Northline Gardens',
+    intention: 'Serious relationship',
+    energy: 'Dawn swims, community dinners, long-range plans',
+    tags: ['Swimming', 'Volunteering', 'Astronomy'],
+    values: ['Patience', 'Shared responsibility', 'Wonder'],
+    bio: 'I have learned to move slowly and mean it. I am drawn to people who can talk about the future without turning it into a test.',
+    accent: '#f4a2ff',
+    compatibility: { pace: 93, values: 91, lifestyle: 84, money: 86 },
+  },
 ];
 
 const insertProfile = db.prepare(`
@@ -161,11 +280,35 @@ app.use(helmet({
     },
   },
 }));
-app.use(express.json({ limit: '1mb' }));
+app.use(express.json({ limit: '4mb' }));
+
+const localAuth = createLocalAuth(db);
+
+function readLocalToken(req) {
+  const authorization = req.get('authorization') || '';
+  const token = authorization.match(/^Bearer\s+local\.(\S+)$/i)?.[1];
+  return token ? localAuth.readToken(token) : null;
+}
 
 async function requireAuthentication(req, res, next) {
+  const localUser = readLocalToken(req);
+  if (localUser) {
+    req.authenticatedUser = {
+      id: localUser.id,
+      email: localUser.username,
+      app_metadata: { provider: 'local' },
+      user_metadata: {
+        age: localUser.age,
+        adult_confirmed: true,
+        role: localUser.role,
+      },
+    };
+    req.localUser = localUser;
+    return next();
+  }
+
   if (!supabaseUrl || !supabaseAnonKey) {
-    return res.status(503).json({ message: 'Account services are not configured.' });
+    return res.status(401).json({ message: 'Sign in to continue.' });
   }
 
   const authorization = req.get('authorization') || '';
@@ -269,19 +412,89 @@ app.get('/api/config', (_req, res) => {
   res.json({ tiers: tierConfig });
 });
 
+app.post('/api/session/register', (req, res) => {
+  const result = localAuth.register(req.body || {});
+  if (result.error) return res.status(400).json({ message: result.error });
+  return res.status(201).json(result);
+});
+
+app.post('/api/session/login', (req, res) => {
+  const result = localAuth.login(req.body?.username, req.body?.password);
+  if (result.error) return res.status(401).json({ message: result.error });
+  return res.json(result);
+});
+
+app.get('/api/session', (req, res) => {
+  const user = readLocalToken(req);
+  if (!user) return res.status(401).json({ message: 'Sign in to continue.' });
+  return res.json({ user });
+});
+
+app.delete('/api/session', (req, res) => {
+  const token = (req.get('authorization') || '').match(/^Bearer\s+local\.(\S+)$/i)?.[1];
+  localAuth.revoke(token);
+  return res.status(204).end();
+});
+
+app.get('/api/map', (_req, res) => {
+  const records = db.prepare('SELECT id, name, intention, accent, age FROM profiles').all();
+  const members = localAuth.visibleMembers();
+  const areas = mapAreas.map((area) => {
+    const souls = records
+      .filter((profile) => areaForProfile(profile.id) === area.id)
+      .map((profile) => ({
+        id: profile.id,
+        name: profile.name,
+        intention: profile.intention,
+        accent: profile.accent,
+        age: profile.age,
+      }));
+    const locals = members
+      .filter((member) => member.area === area.id)
+      .map((member) => ({
+        id: member.id,
+        name: member.username,
+        intention: 'Signed-in soul',
+        accent: '#c5b9ff',
+        age: null,
+      }));
+    const people = [...souls, ...locals];
+    return { ...area, count: people.length, souls: people };
+  });
+  res.json({
+    areas,
+    total: areas.reduce((sum, area) => sum + area.count, 0),
+    note: 'Locations are coarse areas only. SoulSite never shows an exact address or live coordinates.',
+  });
+});
+
 app.get('/api/profiles', (_req, res) => {
   const records = db.prepare('SELECT * FROM profiles ORDER BY name').all();
-  const serialized = records.map((profile) => ({
-    ...profile,
-    values: JSON.parse(profile.profile_values),
-    tags: JSON.parse(profile.tags),
-    compatibility: JSON.parse(profile.compatibility),
-    score: getCompatibilityScore(JSON.parse(profile.compatibility)),
-  }));
+  const serialized = records.map((profile) => {
+    const area = areaById(areaForProfile(profile.id));
+    return {
+      ...profile,
+      values: JSON.parse(profile.profile_values),
+      tags: JSON.parse(profile.tags),
+      compatibility: JSON.parse(profile.compatibility),
+      score: getCompatibilityScore(JSON.parse(profile.compatibility)),
+      areaId: area?.id || null,
+      areaName: area?.name || 'Somewhere in the field',
+    };
+  });
   res.json({ profiles: serialized });
 });
 
 app.get('/api/me/profile', requireAuthentication, requireAdultAccount, async (req, res) => {
+  if (req.localUser) {
+    const saved = localAuth.readProfile(req.localUser.id);
+    return res.json({
+      profile: saved.profile,
+      visibility: saved.visibility,
+      overview: saved.overview,
+      updatedAt: saved.updated_at,
+    });
+  }
   try {
     const records = await requestPrivateProfile(req, 'GET');
     const record = records[0];
@@ -311,6 +524,16 @@ app.put('/api/me/profile', requireAuthentication, requireAdultAccount, async (re
   if (validated.error) return res.status(400).json({ message: validated.error });
   if (!validated.profile.age) {
     return res.status(400).json({ message: 'Confirm that you are at least 18 by entering your age before saving.' });
+  }
+
+  if (req.localUser) {
+    const saved = localAuth.saveProfile(req.localUser.id, validated.profile, validated.visibility, validated.overview);
+    return res.json({
+      profile: saved.profile,
+      visibility: saved.visibility,
+      overview: saved.overview,
+      updatedAt: saved.updated_at,
+    });
   }
 
   try {
@@ -355,7 +578,9 @@ app.post('/api/me/overview', requireAuthentication, requireAdultAccount, async (
   db.prepare('INSERT INTO overview_generation_requests (user_id, requested_at) VALUES (?, CURRENT_TIMESTAMP)').run(userId);
 
   try {
-    const records = await requestPrivateProfile(req, 'GET');
+    const records = req.localUser
+      ? [localAuth.readProfile(req.localUser.id)]
+      : await requestPrivateProfile(req, 'GET');
     const savedProfile = records[0];
     if (!savedProfile?.profile || !savedProfile.profile.age) {
       return res.status(400).json({ message: 'Save your profile and confirm your age before asking SoulMind to write an overview.' });
@@ -392,12 +617,14 @@ app.post('/api/me/overview', requireAuthentication, requireAdultAccount, async (
       return res.status(502).json({ message: 'The generated draft included contact details and was not saved. Review your profile answers and try again.' });
     }
 
-    const updated = await requestPrivateProfile(req, 'POST', {
-      id: req.authenticatedUser.id,
-      profile: savedProfile.profile,
-      visibility: savedProfile.visibility,
-      overview: generated.overview,
-    });
+    const updated = req.localUser
+      ? [localAuth.saveProfile(req.localUser.id, savedProfile.profile, savedProfile.visibility, generated.overview)]
+      : await requestPrivateProfile(req, 'POST', {
+        id: req.authenticatedUser.id,
+        profile: savedProfile.profile,
+        visibility: savedProfile.visibility,
+        overview: generated.overview,
+      });
     if (!updated[0]) throw new Error('Profile storage did not confirm the saved overview.');
 
     return res.json({
@@ -414,6 +641,14 @@ app.post('/api/me/overview', requireAuthentication, requireAdultAccount, async (
 });
 
 app.delete('/api/me/account', requireAuthentication, async (req, res) => {
+  if (req.localUser) {
+    if (req.localUser.role === 'admin') {
+      return res.status(403).json({ message: 'The admin account cannot be deleted from the field.' });
+    }
+    localAuth.deleteAccount(req.localUser.id);
+    db.prepare('DELETE FROM overview_generation_requests WHERE user_id = ?').run(req.localUser.id);
+    return res.status(204).end();
+  }
   try {
     const response = await fetch(`${supabaseUrl.replace(/\/$/, '')}/rest/v1/rpc/delete_own_auth_user`, {
       method: 'POST',
@@ -437,6 +672,10 @@ app.delete('/api/me/account', requireAuthentication, async (req, res) => {
 });
 
 app.delete('/api/me/profile', requireAuthentication, async (req, res) => {
+  if (req.localUser) {
+    localAuth.deleteProfile(req.localUser.id);
+    return res.status(204).end();
+  }
   try {
     await requestPrivateProfile(req, 'DELETE');
     return res.status(204).end();
@@ -457,7 +696,8 @@ app.post('/api/decision', (req, res) => {
   const limit = tierConfig[tier] ?? tierConfig.Free;
   const usedToday = getDailyYesCount(userId, dateKey);
 
-  if (action === 'yes' && usedToday >= limit) {
+  const actor = readLocalToken(req);
+  if (action === 'yes' && actor?.role !== 'admin' && usedToday >= limit) {
     return res.status(429).json({
       message: 'Daily YES limit reached for this tier.',
       remaining: 0,
