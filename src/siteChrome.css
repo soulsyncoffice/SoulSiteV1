@@ -6,6 +6,7 @@
   position: sticky;
   top: 0;
   z-index: 50;
+  flex: 0 0 auto;
   display: grid;
   gap: 8px;
   padding: 14px 0 8px;
@@ -103,10 +104,13 @@
 }
 
 .view-stage {
+  position: relative;
+  z-index: 2;
   min-height: 0;
-  flex: 1;
+  flex: 1 1 auto;
   overflow: auto;
   animation: view-arrive 0.62s cubic-bezier(0.16, 0.84, 0.32, 1);
+  animation-fill-mode: both;
 }
 
 .intro-overlay {
