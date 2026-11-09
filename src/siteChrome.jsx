@@ -19,10 +19,12 @@ const tabs = [
 ]
 
 function hashFor(route) {
+  if (route.tab === 'arcade') return '#/arcade'
   return `#/${route.tab}${route.sub ? `/${route.sub}` : ''}`
 }
 
 function parseHash() {
+  if (window.location.hash.startsWith('#/arcade')) return { tab: 'arcade', sub: '' }
   const [tab, sub = ''] = window.location.hash.replace(/^#\/?/, '').split('/')
   const known = tabs.find((item) => item.id === tab)
   return { tab: known ? known.id : 'home', sub }
@@ -41,6 +43,12 @@ export function useSiteRoute() {
 
   useEffect(() => {
     function onPop(event) {
+      if (window.location.hash.startsWith('#/arcade') || event.state?.tab === 'arcade') {
+        const next = { tab: 'arcade', sub: '' }
+        window.history.pushState({ soulsite: true, ...next }, '', hashFor(next))
+        setRoute(next)
+        return
+      }
       if (!event.state?.soulsite) {
         const next = { tab: 'home', sub: '' }
         window.history.pushState({ soulsite: true, ...next }, '', hashFor(next))

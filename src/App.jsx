@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import SoulField from './SoulField.jsx'
+import { ArcadeLauncher, ArcadeWindow, openArcadeWindow } from './platformer/ArcadeWindow.jsx'
 import {
   IntroOverlay,
   MapDesk,
@@ -433,6 +434,12 @@ function App() {
   const [error, setError] = useState('')
   const [retryCount, setRetryCount] = useState(0)
   const site = useSiteRoute()
+  const [externalArcade, setExternalArcade] = useState(false)
+
+  function handleNavigate(tab, sub = '') {
+    if (tab === 'play') setExternalArcade(openArcadeWindow())
+    site.navigate(tab, sub)
+  }
 
   useEffect(() => {
     let isActive = true
@@ -527,12 +534,24 @@ function App() {
     }
   }
 
+  if (site.route.tab === 'arcade') {
+    return (
+      <ArcadeWindow
+        popped
+        onExit={() => {
+          if (window.opener) window.close()
+          site.navigate('home')
+        }}
+      />
+    )
+  }
+
   return (
     <div className="app-shell" style={{ '--current-accent': currentProfile?.accent || '#a78bfa' }}>
       <Cosmos accent={currentProfile?.accent} />
       <div aria-hidden="true" className="ambient-vignette" />
 
-      <SiteHeader onNavigate={site.navigate} route={site.route} user={site.user} />
+      <SiteHeader onNavigate={handleNavigate} route={site.route} user={site.user} />
       <div className="view-stage" key={`${site.route.tab}-${site.route.sub}`}>
       {site.route.tab === 'home' ? <><main className="discovery-grid">
         <section aria-label="About this connection" className="story-stream">
@@ -702,7 +721,11 @@ function App() {
         </div>
       </footer>
       </> : null}
-      {site.route.tab === 'play' ? <SoulField inline profiles={profiles} section="play" /> : null}
+      {site.route.tab === 'play' ? (
+        externalArcade
+          ? <ArcadeLauncher onFocus={openArcadeWindow} onPlayHere={() => setExternalArcade(false)} />
+          : <ArcadeWindow onExit={() => site.navigate('home')} onPopOut={() => setExternalArcade(openArcadeWindow())} />
+      ) : null}
       {site.route.tab === 'connections' ? <SoulField inline profiles={profiles} section="connections" sub={site.route.sub || 'icebreakers'} /> : null}
       {site.route.tab === 'trust' ? <SoulField inline profiles={profiles} section="trust" /> : null}
       {site.route.tab === 'progression' ? <SoulField inline profiles={profiles} section="progression" sub={site.route.sub || 'prompts'} /> : null}

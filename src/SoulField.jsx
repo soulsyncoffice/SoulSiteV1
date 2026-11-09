@@ -1,10 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  createInitialState,
-  levels,
-  simulateStep,
-} from './game/index.js'
-import {
   CuratedDateProposals,
   DailyIcebreaker,
   MutualActivities,
@@ -25,20 +20,6 @@ import TrustPrivacyHub from './trust/TrustPrivacyHub.jsx'
 import './SoulField.css'
 
 const storageKey = 'soulsite.fieldDesk'
-const tileLabels = {
-  '#': 'Wall',
-  '.': 'Open path',
-  S: 'Start',
-  R: 'Checkpoint',
-  E: 'Exit',
-  C: 'Collectible',
-  T: 'Switch',
-  G: 'Locked gate',
-  H: 'Hazard, returns you to the checkpoint',
-  P: 'Co-op plate',
-  B: 'Locked path',
-}
-
 const activities = [
   { id: 'library-hour', title: 'Library hour', description: 'Sit with a shared question and no agenda.', durationMinutes: 60 },
   { id: 'market-walk', title: 'Market walk', description: 'A public, low-pressure walk through a busy place.', durationMinutes: 90 },
@@ -77,100 +58,6 @@ function approveText(text) {
 
 function todayKey() {
   return new Date().toISOString().slice(0, 10)
-}
-
-function SoulGame() {
-  const [levelId, setLevelId] = useState(levels[0].id)
-  const [activePlayer, setActivePlayer] = useState('p1')
-  const [completed, setCompleted] = useState(() => readDesk().completedLevels || [])
-  const level = levels.find((item) => item.id === levelId) || levels[0]
-  const playerCount = level.mode === 'co-op' ? 2 : 1
-  const [game, setGame] = useState(() => createInitialState(level, playerCount))
-
-  useEffect(() => {
-    setActivePlayer('p1')
-    setGame(createInitialState(level, level.mode === 'co-op' ? 2 : 1))
-  }, [level])
-
-  useEffect(() => {
-    if (game.status !== 'complete' || completed.includes(level.id)) return
-    const next = [...completed, level.id]
-    setCompleted(next)
-    writeDesk({ ...readDesk(), completedLevels: next })
-  }, [completed, game.status, level.id])
-
-  function act(input) {
-    setGame((current) => simulateStep(level, current, [{ playerId: activePlayer, input }]))
-  }
-
-  useEffect(() => {
-    function onKey(event) {
-      const input = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'w', 'a', 's', 'd', 'Enter', ' '].includes(event.key)
-        ? event.key
-        : null
-      if (!input) return
-      event.preventDefault()
-      act(input)
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  })
-
-  const width = level.layout[0]?.length || 1
-  return (
-    <section className="field-game" aria-labelledby="field-game-title">
-      <div className="field-game-copy">
-        <p className="field-kicker">Recovered game · 20 authored levels</p>
-        <h2 id="field-game-title">{level.world}: {level.title}</h2>
-        <p>{level.accessibilityNotes}</p>
-        <p className="field-note">
-          This is the authored module from the game branch. It is turn-based and playable now.
-          It is 20 distinct levels across 10 worlds, not the planned 500-level catalog.
-        </p>
-        <label>
-          Level
-          <select value={level.id} onChange={(event) => setLevelId(event.target.value)}>
-            {levels.map((item) => (
-              <option key={item.id} value={item.id}>
-                {completed.includes(item.id) ? '✓ ' : ''}{item.world} {item.number}: {item.title} ({item.mode})
-              </option>
-            ))}
-          </select>
-        </label>
-        {level.mode === 'co-op' ? (
-          <div className="field-player-switch" role="group" aria-label="Active soul">
-            <button type="button" aria-pressed={activePlayer === 'p1'} onClick={() => setActivePlayer('p1')}>Soul 1</button>
-            <button type="button" aria-pressed={activePlayer === 'p2'} onClick={() => setActivePlayer('p2')}>Soul 2</button>
-          </div>
-        ) : null}
-        <p role="status">
-          {game.status === 'complete' ? 'Level complete.' : `Turn ${game.tick}. Collected ${game.progress.collected.length}. Switches ${game.progress.activated.length}.`}
-        </p>
-        <div className="field-pad" role="group" aria-label="Movement">
-          <button type="button" onClick={() => act('up')}>Up</button>
-          <button type="button" onClick={() => act('left')}>Left</button>
-          <button type="button" onClick={() => act('down')}>Down</button>
-          <button type="button" onClick={() => act('right')}>Right</button>
-          <button type="button" onClick={() => act('interact')}>Interact</button>
-          <button type="button" onClick={() => setGame(createInitialState(level, playerCount))}>Restart</button>
-        </div>
-      </div>
-      <div className="field-board" style={{ '--cols': width }} role="img" aria-label={`${level.title} map`}>
-        {level.layout.flatMap((row, y) => [...row].map((tile, x) => {
-          const players = game.players.filter((player) => player.x === x && player.y === y)
-          const label = players.length
-            ? `${players.map((player) => player.id).join(' and ')} on ${tileLabels[tile] || tile}`
-            : tileLabels[tile] || tile
-          return (
-            <span className={`field-tile tile-${tile === '#' ? 'wall' : 'open'}${players.length ? ' has-player' : ''}`} key={`${x}-${y}`} title={label}>
-              <span className="field-glyph">{tile === '.' ? '' : tile}</span>
-              {players.map((player) => <i key={player.id}>{player.id === 'p2' ? '2' : '1'}</i>)}
-            </span>
-          )
-        }))}
-      </div>
-    </section>
-  )
 }
 
 function ConnectionsDesk({ part = 'icebreakers' }) {
@@ -289,7 +176,6 @@ export default function SoulField({ profiles = [], onClose, section = 'play', su
 
   const body = (
     <>
-        {section === 'play' ? <SoulGame /> : null}
         {section === 'connections' ? <ConnectionsDesk part={sub || 'icebreakers'} /> : null}
         {section === 'trust' ? (
           <TrustPrivacyHub
