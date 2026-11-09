@@ -1,0 +1,332 @@
+.admin-corner {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 80;
+  width: 22px;
+  height: 22px;
+  border: 1px solid rgba(126, 240, 255, 0.45);
+  border-radius: 50%;
+  color: rgba(214, 250, 255, 0.72);
+  background: rgba(6, 10, 18, 0.72);
+  font-size: 11px;
+  letter-spacing: 0;
+  opacity: 0.55;
+}
+
+.admin-corner:hover,
+.admin-corner:focus-visible {
+  opacity: 1;
+  box-shadow: 0 0 16px rgba(126, 240, 255, 0.45);
+}
+
+.admin-hub {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: grid;
+  grid-template-columns: 196px 1fr;
+  color: #d7f7ff;
+  background:
+    radial-gradient(circle at 20% 0%, rgba(124, 92, 255, 0.28), transparent 32%),
+    linear-gradient(180deg, rgba(8, 12, 24, 0.96), rgba(4, 6, 12, 0.98));
+  overflow: hidden;
+}
+
+.admin-hub::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(180deg, transparent 0 2px, rgba(126, 240, 255, 0.025) 2px 3px);
+  animation: admin-scan 9s linear infinite;
+}
+
+.admin-rail,
+.admin-main {
+  position: relative;
+  z-index: 1;
+}
+
+.admin-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 18px 14px;
+  border-right: 1px solid rgba(126, 240, 255, 0.16);
+  background: rgba(3, 6, 12, 0.45);
+}
+
+.admin-rail p,
+.admin-kicker {
+  margin: 0;
+  color: #7ef0ff;
+  font-size: 0.68rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.admin-rail h1,
+.admin-top h2,
+.admin-gate h2 {
+  margin: 4px 0 12px;
+  font-weight: 560;
+  letter-spacing: 0.04em;
+}
+
+.admin-rail button,
+.admin-top button,
+.admin-gate button,
+.inspect-panel button,
+.inspect-toggle,
+.admin-editor button,
+.admin-wide button {
+  border: 1px solid rgba(126, 240, 255, 0.28);
+  border-radius: 999px;
+  color: inherit;
+  background: rgba(126, 240, 255, 0.06);
+  cursor: pointer;
+}
+
+.admin-rail button {
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.admin-rail button.is-active {
+  color: #071018;
+  background: #7ef0ff;
+}
+
+.admin-rail .admin-back {
+  margin-top: auto;
+}
+
+.admin-main {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: auto;
+}
+
+.admin-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: end;
+  padding: 18px 22px 8px;
+}
+
+.admin-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #c6ff8a;
+  font-size: 0.75rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.admin-live i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #c6ff8a;
+  box-shadow: 0 0 12px #c6ff8a;
+  animation: admin-pulse 1.4s ease-in-out infinite;
+}
+
+.admin-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  padding: 12px 22px 22px;
+}
+
+.admin-card,
+.admin-wide,
+.admin-table-wrap,
+.admin-editor {
+  border: 1px solid rgba(126, 240, 255, 0.16);
+  border-radius: 16px;
+  background: rgba(8, 14, 24, 0.72);
+  box-shadow: inset 0 0 24px rgba(126, 240, 255, 0.04);
+}
+
+.admin-card,
+.admin-wide,
+.admin-table-wrap,
+.admin-editor {
+  padding: 14px;
+}
+
+.admin-card strong,
+.admin-wide strong {
+  display: block;
+  margin-top: 8px;
+  font-size: 1.5rem;
+}
+
+.admin-card span,
+.admin-wide span,
+.admin-table-wrap small,
+.admin-editor small {
+  color: #93b0c0;
+}
+
+.admin-wide,
+.admin-table-wrap,
+.admin-editor {
+  grid-column: 1 / -1;
+}
+
+.admin-bars {
+  display: flex;
+  align-items: end;
+  gap: 6px;
+  height: 120px;
+  margin-top: 12px;
+}
+
+.admin-bars b {
+  flex: 1;
+  min-height: 4px;
+  border-radius: 6px 6px 0 0;
+  background: linear-gradient(180deg, #f4a2ff, #7ef0ff);
+  transform-origin: bottom;
+  animation: admin-rise 700ms ease both;
+}
+
+.admin-feed {
+  max-height: 280px;
+  overflow: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-feed li,
+.admin-table button.row {
+  display: grid;
+  grid-template-columns: 92px 1fr auto;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 0;
+  border: 0;
+  border-bottom: 1px solid rgba(126, 240, 255, 0.1);
+  color: inherit;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.admin-feed .is-bad,
+.tone-bad { color: #ffb15e; }
+.tone-live { color: #c6ff8a; }
+.tone-standby { color: #93b0c0; }
+
+.admin-editor label,
+.admin-gate label,
+.inspect-panel label {
+  display: grid;
+  gap: 6px;
+  margin: 10px 0;
+}
+
+.admin-editor input,
+.admin-editor textarea,
+.admin-editor select,
+.admin-gate input,
+.inspect-panel textarea {
+  width: 100%;
+  border: 1px solid rgba(126, 240, 255, 0.2);
+  border-radius: 10px;
+  padding: 8px 10px;
+  color: #effcff;
+  background: rgba(2, 6, 12, 0.8);
+  font: inherit;
+}
+
+.admin-editor textarea,
+.inspect-panel textarea {
+  min-height: 140px;
+  resize: vertical;
+}
+
+.admin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.admin-gate {
+  position: fixed;
+  inset: 0;
+  z-index: 61;
+  display: grid;
+  place-items: center;
+  background: rgba(4, 6, 12, 0.88);
+}
+
+.admin-gate form {
+  width: min(420px, calc(100% - 32px));
+  padding: 22px;
+  border: 1px solid rgba(126, 240, 255, 0.3);
+  border-radius: 18px;
+  background: rgba(8, 12, 22, 0.94);
+  box-shadow: 0 0 40px rgba(124, 92, 255, 0.25);
+}
+
+.admin-error {
+  color: #ffb4c8;
+}
+
+.inspect-toggle,
+.inspect-panel {
+  position: fixed;
+  z-index: 75;
+}
+
+.inspect-toggle {
+  right: 18px;
+  bottom: 18px;
+  padding: 8px 12px;
+}
+
+.inspect-panel {
+  right: 18px;
+  bottom: 62px;
+  width: min(380px, calc(100% - 24px));
+  padding: 14px;
+  border: 1px solid rgba(126, 240, 255, 0.35);
+  border-radius: 16px;
+  background: rgba(6, 10, 18, 0.94);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
+}
+
+html.is-inspecting [data-inspect] {
+  outline: 1px dashed rgba(126, 240, 255, 0.85);
+  outline-offset: 3px;
+  cursor: crosshair;
+}
+
+@media (max-width: 860px) {
+  .admin-hub { grid-template-columns: 1fr; }
+  .admin-rail { flex-direction: row; overflow: auto; }
+  .admin-rail .admin-back { margin-top: 0; }
+  .admin-grid { grid-template-columns: 1fr; }
+}
+
+@keyframes admin-scan {
+  from { transform: translateY(-8%); }
+  to { transform: translateY(8%); }
+}
+
+@keyframes admin-pulse {
+  50% { opacity: 0.35; }
+}
+
+@keyframes admin-rise {
+  from { transform: scaleY(0.2); }
+}

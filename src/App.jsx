@@ -3,6 +3,7 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import SoulField from './SoulField.jsx'
 import { ArcadeLauncher, ArcadeWindow, openArcadeWindow } from './platformer/ArcadeWindow.jsx'
+import { AdminHub, SiteInspector } from './admin/AdminHub.jsx'
 import {
   IntroOverlay,
   MapDesk,
@@ -435,6 +436,7 @@ function App() {
   const [retryCount, setRetryCount] = useState(0)
   const site = useSiteRoute()
   const [externalArcade, setExternalArcade] = useState(false)
+  const [copy, setCopy] = useState({})
 
   function handleNavigate(tab, sub = '') {
     if (tab === 'play') setExternalArcade(openArcadeWindow())
@@ -474,6 +476,19 @@ function App() {
     initialize()
     return () => {
       isActive = false
+    }
+  }, [retryCount])
+
+  useEffect(() => {
+    let active = true
+    fetch('/api/content')
+      .then((response) => response.json())
+      .then((payload) => {
+        if (active) setCopy(payload.overrides || {})
+      })
+      .catch(() => {})
+    return () => {
+      active = false
     }
   }, [retryCount])
 
@@ -560,11 +575,13 @@ function App() {
             <span>OF {String(profiles.length || 0).padStart(2, '0')} ENCOUNTERS</span>
           </div>
           <div className="story-rule" />
-          <p className="eyebrow">Beyond the surface</p>
-          <h1>A quieter kind<br />of <span>chemistry.</span></h1>
-          <p className="story-intro">
-            No swiping through faces. Meet someone through the things that make you, you.
-          </p>
+          <p className="eyebrow" data-inspect="copy" data-key="home.eyebrow">{copy['home.eyebrow'] || 'Beyond the surface'}</p>
+                    <h1 data-inspect="copy" data-key="home.headline">
+                      {copy['home.headline'] || <>A quieter kind<br />of <span>chemistry.</span></>}
+                    </h1>
+                    <p className="story-intro" data-inspect="copy" data-key="home.intro">
+                      {copy['home.intro'] || 'No swiping through faces. Meet someone through the things that make you, you.'}
+                    </p>
 
           {currentProfile ? (
             <div className="profile-story" key={currentProfile.id}>
@@ -572,7 +589,7 @@ function App() {
               <p className="intention">{currentProfile.intention}</p>
               <div className="story-rule story-rule-short" />
               <p className="story-label">A NOTE FROM {currentProfile.name?.toUpperCase()}</p>
-              <p className="bio-copy">{currentProfile.bio}</p>
+                            <p className="bio-copy" data-field="bio" data-inspect="soul" data-soul={currentProfile.id}>{currentProfile.bio}</p>
               <p className="energy-note">
                 <span aria-hidden="true">✳</span> {currentProfile.energy}
               </p>
@@ -674,7 +691,7 @@ function App() {
             </div>
           ) : null}
 
-          <div aria-live="polite" className={`signal-note${error ? ' has-error' : ''}`}>
+          <div aria-live="polite" className={`signal-note${error ? ' has-error' : ''}`} data-inspect={error ? 'issue' : undefined} data-key="home.signal" data-message={error || ''}>
             <span className="signal-pulse" />
             <p>{error || decision}</p>
           </div>
@@ -732,11 +749,28 @@ function App() {
       {site.route.tab === 'profile' ? <ProfileDesk onOpenSignIn={() => site.navigate('signin')} sub={site.route.sub || 'editor'} token={site.token} /> : null}
       {site.route.tab === 'map' ? <MapDesk onOpenSignIn={() => site.navigate('signin')} /> : null}
       {site.route.tab === 'settings' ? <SettingsDesk onPlan={handleTierChange} onSignOut={site.signOut} token={site.token} user={site.user} /> : null}
-      {site.route.tab === 'signin' ? <SignInDesk onSignedIn={site.signIn} /> : null}
+      {site.route.tab === 'signin' ? <SignInDesk copy={copy} onSignedIn={site.signIn} /> : null}
       </div>
-      {site.intro ? <IntroOverlay onSkip={site.dismissIntro} /> : null}
-    </div>
-  )
-}
+            {site.route.tab === 'signin' ? (
+              <button aria-label="Admin" className="admin-corner" onClick={() => site.navigate('admin', 'pulse')} type="button">A</button>
+            ) : null}
+            {site.user?.role === 'admin' && site.route.tab !== 'admin' && site.route.tab !== 'arcade' ? (
+              <SiteInspector onChanged={() => setRetryCount((count) => count + 1)} token={site.token} />
+            ) : null}
+            {site.route.tab === 'admin' ? (
+              <AdminHub
+                onChanged={() => setRetryCount((count) => count + 1)}
+                onExit={() => site.navigate('signin')}
+                onPanel={(panel) => site.navigate('admin', panel)}
+                onSignedIn={(nextToken, nextUser) => site.signIn(nextToken, nextUser, { tab: 'admin', sub: 'pulse' })}
+                panel={site.route.sub || 'pulse'}
+                token={site.token}
+                user={site.user}
+              />
+            ) : null}
+            {site.intro && site.route.tab !== 'admin' ? <IntroOverlay onSkip={site.dismissIntro} /> : null}
+          </div>
+        )
+      }
 
 export default App

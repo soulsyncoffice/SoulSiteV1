@@ -9,6 +9,7 @@ import { hasContactInformation } from './contentPolicy.js';
 import { buildOverviewRequest, parseOverviewResponse } from './overviewGeneration.js';
 import { validateProfilePayload } from './profileValidation.js';
 import { createLocalAuth } from './localSession.js';
+import { createAdminRouter, createTelemetry, readPublicContent } from './adminHub.js';
 import { areaById, areaForProfile, mapAreas } from './mapAreas.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -283,6 +284,8 @@ app.use(helmet({
 app.use(express.json({ limit: '4mb' }));
 
 const localAuth = createLocalAuth(db);
+const telemetry = createTelemetry();
+app.use(telemetry.middleware);
 
 function readLocalToken(req) {
   const authorization = req.get('authorization') || '';
@@ -385,6 +388,12 @@ async function requestPrivateProfile(req, method, payload) {
 app.get('/health', (_req, res) => {
   res.json({ status: 'ok' });
 });
+
+app.get('/api/content', (_req, res) => {
+  res.json({ overrides: readPublicContent(db) });
+});
+
+app.use('/api/admin', createAdminRouter({ db, localAuth, telemetry, dbPath }));
 
 const getCompatibilityScore = (profile) => {
   const compatibility = profile.compatibility ?? profile;
@@ -705,7 +714,15 @@ app.post('/api/decision', (req, res) => {
     });
   }
 
-  const profile = profiles.find((entry) => entry.id === profileId);
+  const profileRow = db.prepare('SELECT * FROM profiles WHERE id = ?').get(profileId);
+  const profile = profileRow
+    ? {
+        ...profileRow,
+        values: JSON.parse(profileRow.profile_values),
+        tags: JSON.parse(profileRow.tags),
+        compatibility: JSON.parse(profileRow.compatibility),
+      }
+    : null;
   if (!profile) {
     return res.status(404).json({ message: 'Profile not found.' });
   }

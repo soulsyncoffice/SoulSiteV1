@@ -20,11 +20,16 @@ const tabs = [
 
 function hashFor(route) {
   if (route.tab === 'arcade') return '#/arcade'
+  if (route.tab === 'admin') return `#/admin${route.sub ? `/${route.sub}` : ''}`
   return `#/${route.tab}${route.sub ? `/${route.sub}` : ''}`
 }
 
 function parseHash() {
   if (window.location.hash.startsWith('#/arcade')) return { tab: 'arcade', sub: '' }
+  if (window.location.hash.startsWith('#/admin')) {
+    const sub = window.location.hash.replace(/^#\/admin\/?/, '').split('/')[0] || 'pulse'
+    return { tab: 'admin', sub }
+  }
   const [tab, sub = ''] = window.location.hash.replace(/^#\/?/, '').split('/')
   const known = tabs.find((item) => item.id === tab)
   return { tab: known ? known.id : 'home', sub }
@@ -49,6 +54,12 @@ export function useSiteRoute() {
         setRoute(next)
         return
       }
+          if (window.location.hash.startsWith('#/admin') || event.state?.tab === 'admin') {
+            const next = parseHash()
+            window.history.pushState({ soulsite: true, ...next }, '', hashFor(next))
+            setRoute(next)
+            return
+          }
       if (!event.state?.soulsite) {
         const next = { tab: 'home', sub: '' }
         window.history.pushState({ soulsite: true, ...next }, '', hashFor(next))
@@ -93,12 +104,13 @@ export function useSiteRoute() {
     setIntro(false)
   }
 
-  function signIn(nextToken, nextUser) {
+  function signIn(nextToken, nextUser, destination = 'home') {
     localStorage.setItem(TOKEN_KEY, nextToken)
     setToken(nextToken)
     setUser(nextUser)
-    navigate('home')
-  }
+      if (destination && typeof destination === 'object') navigate(destination.tab || 'home', destination.sub || '')
+      else navigate(destination || 'home')
+    }
 
   function signOut() {
     const current = token
@@ -170,7 +182,7 @@ export function IntroOverlay({ onSkip }) {
   )
 }
 
-export function SignInDesk({ onSignedIn }) {
+export function SignInDesk({ onSignedIn, copy = {} }) {
   const [mode, setMode] = useState('signin')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -203,9 +215,9 @@ export function SignInDesk({ onSignedIn }) {
 
   return (
     <section className="desk-card signin-card">
-      <p className="desk-kicker">Local field account</p>
+      <p className="desk-kicker" data-inspect="copy" data-key="signin.kicker">{copy['signin.kicker'] || 'Local field account'}</p>
       <h2>{mode === 'signin' ? 'Sign in' : 'Create your account'}</h2>
-      <p>This deployment signs you in on SoulSite itself. Email accounts remain available when Supabase is configured.</p>
+            <p data-inspect="copy" data-key="signin.lede">{copy['signin.lede'] || 'This deployment signs you in on SoulSite itself. Email accounts remain available when Supabase is configured.'}</p>
       <form onSubmit={submit}>
         <label>Name<input autoComplete="username" onChange={(event) => setUsername(event.target.value)} required value={username} /></label>
         <label>Password<input autoComplete={mode === 'signin' ? 'current-password' : 'new-password'} onChange={(event) => setPassword(event.target.value)} required type="password" value={password} /></label>
